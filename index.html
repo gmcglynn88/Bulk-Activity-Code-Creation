@@ -53,6 +53,18 @@
     #results p {
       font-weight: normal;
     }
+
+    /* Align checkboxes with labels */
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    .checkbox-container input[type="checkbox"] {
+      margin-right: 10px;  /* Space between checkbox and label */
+    }
+
   </style>
 </head>
 <body>
@@ -65,7 +77,24 @@
     >
   </div>
 
-  <h1>Create Activity Code</h1>
+  <h1>Manage Business Units and Activity Codes</h1>
+
+  <!-- Business Units Dropdown -->
+  <label for="business-units">Select Business Units:</label>
+  <select id="business-units" multiple>
+    <!-- Options will be populated dynamically via JavaScript -->
+  </select>
+
+  <button onclick="createActivityCode()">Create Activity Code for Selected Business Units</button>
+
+  <div id="results">
+    <!-- Results will be displayed here -->
+  </div>
+
+  <hr>
+
+  <!-- Activity Code Creation Form -->
+  <h2>Create Activity Code</h2>
 
   <label for="activity-name">Activity Name:</label>
   <input type="text" id="activity-name" placeholder="Enter activity name" required>
@@ -88,34 +117,39 @@
   <input type="number" id="length" placeholder="Enter default length">
 
   <label>Options:</label>
-  <input type="checkbox" id="paid-time" value="countsAsPaidTime">
-  <label for="paid-time">Counts as Paid Time</label>
 
-  <input type="checkbox" id="work-time" value="countsAsWorkTime">
-  <label for="work-time">Counts as Work Time</label>
-
-  <input type="checkbox" id="time-off-selectable" value="agentTimeOffSelectable">
-  <label for="time-off-selectable">Agent Time Off Selectable</label>
-
-  <input type="checkbox" id="shrinkage" value="countsTowardShrinkage">
-  <label for="shrinkage">Counts Toward Shrinkage</label>
-
-  <input type="checkbox" id="planned-shrinkage" value="plannedShrinkage">
-  <label for="planned-shrinkage">Planned Shrinkage</label>
-
-  <input type="checkbox" id="interruptible" value="interruptible">
-  <label for="interruptible">Interruptible</label>
-
-  <label for="business-units">Business Units:</label>
-  <select id="business-units" multiple>
-    <!-- Options will be populated dynamically via JavaScript -->
-  </select>
-
-  <button onclick="createActivityCode()">Create Activity Code</button>
-
-  <div id="results">
-    <!-- Results will be displayed here -->
+  <!-- Aligning Checkboxes with Labels -->
+  <div class="checkbox-container">
+    <input type="checkbox" id="paid-time" value="countsAsPaidTime">
+    <label for="paid-time">Counts as Paid Time</label>
   </div>
+
+  <div class="checkbox-container">
+    <input type="checkbox" id="work-time" value="countsAsWorkTime">
+    <label for="work-time">Counts as Work Time</label>
+  </div>
+
+  <div class="checkbox-container">
+    <input type="checkbox" id="time-off-selectable" value="agentTimeOffSelectable">
+    <label for="time-off-selectable">Agent Time Off Selectable</label>
+  </div>
+
+  <div class="checkbox-container">
+    <input type="checkbox" id="shrinkage" value="countsTowardShrinkage">
+    <label for="shrinkage">Counts Toward Shrinkage</label>
+  </div>
+
+  <div class="checkbox-container">
+    <input type="checkbox" id="planned-shrinkage" value="plannedShrinkage">
+    <label for="planned-shrinkage">Planned Shrinkage</label>
+  </div>
+
+  <div class="checkbox-container">
+    <input type="checkbox" id="interruptible" value="interruptible">
+    <label for="interruptible">Interruptible</label>
+  </div>
+
+  <div id="results"></div>
 
   <script>
     // Function to fetch access token using Client ID and Client Secret
