@@ -118,25 +118,65 @@
   </div>
 
   <script>
-    // Function to fetch and populate business units dropdown
-    async function fetchBusinessUnits() {
-      const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits';
-      const response = await fetch(apiUrl, {
+    // Function to fetch access token using Client ID and Client Secret
+    async function getAccessToken() {
+      const clientId = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
+      const clientSecret = 'G0qSDsjAtCutt5W-297Yqrwz9n4q3g3YdwpfnbchGcQ';
+      
+      const url = 'https://api.mypurecloud.ie/oauth/token';
+      
+      const body = new URLSearchParams();
+      body.append('grant_type', 'client_credentials');
+      body.append('client_id', clientId);
+      body.append('client_secret', clientSecret);
+      
+      const response = await fetch(url, {
+        method: 'POST',
         headers: {
-          'Authorization': 'Bearer YOUR_ACCESS_TOKEN_HERE'
-        }
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
       });
+      
       const data = await response.json();
-      const businessUnitsSelect = document.getElementById('business-units');
-      data.forEach(unit => {
-        const option = document.createElement('option');
-        option.value = unit.id;
-        option.textContent = unit.name;
-        businessUnitsSelect.appendChild(option);
-      });
+      
+      if (response.ok) {
+        return data.access_token;
+      } else {
+        console.error('Error fetching access token:', data);
+        throw new Error('Error fetching access token');
+      }
     }
 
-    // Function to create activity code
+    // Function to fetch business units
+    async function fetchBusinessUnits() {
+      const accessToken = await getAccessToken(); // Obtain access token
+
+      const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits';
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        const businessUnitsSelect = document.getElementById('business-units');
+        data.forEach(unit => {
+          const option = document.createElement('option');
+          option.value = unit.id;
+          option.textContent = unit.name;
+          businessUnitsSelect.appendChild(option);
+        });
+      } else {
+        console.error('Error fetching business units:', data);
+      }
+    }
+
+    // Function to create the activity code
     async function createActivityCode() {
       const name = document.getElementById('activity-name').value;
       const category = document.getElementById('category').value;
@@ -149,15 +189,16 @@
       const interruptible = document.getElementById('interruptible').checked;
       const businessUnits = Array.from(document.getElementById('business-units').selectedOptions).map(option => option.value);
 
+      const accessToken = await getAccessToken(); // Get access token for API authentication
+
       const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/{businessUnitId}/activitycodes`;
 
-      // Make API call to create activity code
       try {
         const response = await fetch(createUrl, {
           method: 'POST',
           headers: {
-            'Authorization': 'Bearer YOUR_ACCESS_TOKEN_HERE',
-            'Content-Type': 'application/json'
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             name,
@@ -169,11 +210,10 @@
             countsTowardShrinkage,
             plannedShrinkage,
             interruptible,
-            businessUnits
-          })
+            businessUnits,
+          }),
         });
         const data = await response.json();
-        // Handle success or show error
         console.log('Activity code created:', data);
         document.getElementById('results').innerHTML = `<p>Activity code created successfully.</p>`;
       } catch (error) {
