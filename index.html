@@ -59,6 +59,14 @@
       display: flex;
       align-items: center;
       margin: 5px 0; /* Reduced margin for neatness */
+      width: 100%;
+      max-width: 400px;
+      flex-wrap: nowrap; /* Prevents wrapping of text */
+    }
+
+    .checkbox-container label {
+      flex-grow: 1; /* Ensures the label stays aligned properly */
+      white-space: nowrap; /* Prevents the text from wrapping */
     }
 
     .checkbox-container input[type="checkbox"] {
@@ -187,32 +195,46 @@
       }
     }
 
-    // Function to fetch business units
+    // Function to fetch all business units (with pagination support)
     async function fetchBusinessUnits() {
       const accessToken = await getAccessToken(); // Obtain access token
 
       const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits';
       
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        const businessUnitsSelect = document.getElementById('business-units');
-        data.forEach(unit => {
-          const option = document.createElement('option');
-          option.value = unit.id;
-          option.textContent = unit.name;
-          businessUnitsSelect.appendChild(option);
+      let businessUnits = [];
+      let nextPageUrl = apiUrl;
+
+      // Loop to handle pagination
+      while (nextPageUrl) {
+        const response = await fetch(nextPageUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
         });
-      } else {
-        console.error('Error fetching business units:', data);
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Concatenate current page of business units
+          businessUnits = businessUnits.concat(data.entities);
+          
+          // Get the next page URL (if available)
+          nextPageUrl = data.pageNext;
+        } else {
+          console.error('Error fetching business units:', data);
+          nextPageUrl = null; // Stop pagination if an error occurs
+        }
       }
+
+      // Populate the dropdown after fetching all business units
+      const businessUnitsSelect = document.getElementById('business-units');
+      businessUnits.forEach(unit => {
+        const option = document.createElement('option');
+        option.value = unit.id;
+        option.textContent = unit.name;
+        businessUnitsSelect.appendChild(option);
+      });
     }
 
     // Function to create the activity code
