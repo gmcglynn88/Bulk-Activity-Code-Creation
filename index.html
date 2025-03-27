@@ -58,13 +58,18 @@
     .checkbox-container {
       display: flex;
       align-items: center;
-      margin: 10px 0;
+      margin: 5px 0; /* Reduced margin for neatness */
     }
 
     .checkbox-container input[type="checkbox"] {
       margin-right: 10px;  /* Space between checkbox and label */
     }
 
+    /* Ensure consistent width for inputs */
+    .input-container, .checkbox-container {
+      width: 100%;
+      max-width: 400px;
+    }
   </style>
 </head>
 <body>
@@ -116,6 +121,7 @@
   <label for="length">Default Length (minutes):</label>
   <input type="number" id="length" placeholder="Enter default length">
 
+  <label>Options:</label>
 
   <!-- Aligning Checkboxes with Labels -->
   <div class="checkbox-container">
