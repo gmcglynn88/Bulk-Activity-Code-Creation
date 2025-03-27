@@ -4,325 +4,383 @@
   <meta charset="UTF-8">
   <title>Activity Code Management</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Include the Proxima Nova font -->
   <link href="https://fonts.googleapis.com/css2?family=Proxima+Nova&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: 'Proxima Nova', Arial, sans-serif;
       margin: 20px;
       padding: 20px;
-      background-color: #f5f5f5;
     }
-    .form-group {
-      margin-bottom: 15px;
+    /* Center the logo at the top */
+    #logo-container {
+      text-align: center;
+      margin-bottom: 20px;
     }
-    label {
-      font-weight: bold;
+    #logo {
+      width: 300px; /* Adjust as needed */
+    }
+
+    h1 {
+      font-size: 24px; /* Match the font size of the second script */
+    }
+
+    label, select, input, button {
       display: block;
+      margin: 10px 0;
     }
-    input, select {
+
+    /* Specific styling for labels */
+    label {
+      font-weight: bold; /* Make all labels bold */
+    }
+
+    /* Increase size of input boxes and dropdowns */
+    select, input, button {
+      margin-top: 10px;
+      padding: 12px;  /* Increased padding for larger size */
       width: 100%;
-      padding: 10px;
-      margin-top: 5px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+      max-width: 400px;  /* Adjust max-width for larger fields */
+      font-size: 16px;   /* Increased font size */
+      box-sizing: border-box; /* Include padding in width calculation */
     }
+
+    /* Style for the results */
+    #results {
+      margin-top: 20px;
+    }
+
+    /* Non-bold result text */
+    #results p {
+      font-weight: normal;
+    }
+
+    /* Align checkboxes with labels */
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      margin: 5px 0; /* Reduced margin for neatness */
+      width: 100%;
+      max-width: 400px;
+      flex-wrap: nowrap; /* Prevents wrapping of text */
+    }
+
+    .checkbox-container label {
+      flex-grow: 1; /* Ensures the label stays aligned properly */
+      white-space: nowrap; /* Prevents the text from wrapping */
+      font-weight: normal; /* Make checkbox labels normal weight */
+      margin: 0;
+    }
+
+    .checkbox-container input[type="checkbox"] {
+      margin-right: 10px;  /* Space between checkbox and label */
+      width: auto; /* Prevent checkbox from stretching */
+    }
+
+    /* Ensure consistent width for inputs */
+    .input-container, .checkbox-container {
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    /* Style for multiple select */
+    select[multiple] {
+      height: auto;
+      min-height: 120px;
+    }
+    
+    /* Style for buttons */
     button {
-      padding: 10px 20px;
       background-color: #007bff;
       color: white;
       border: none;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 16px;
+      transition: background-color 0.3s;
     }
-    button:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
+    
+    button:hover {
+      background-color: #0056b3;
     }
-    .loading {
-      color: #007bff;
-    }
+    
+    /* Error message styling */
     .error {
-      color: red;
+      color: #dc3545;
     }
+    
+    /* Success message styling */
     .success {
-      color: green;
+      color: #28a745;
     }
   </style>
 </head>
 <body>
-  <h1>Activity Code Management</h1>
-  <div id="results"></div>
 
-  <div class="form-group">
-    <label for="business-units">Select Business Unit(s)</label>
-    <select id="business-units" multiple>
-      <!-- Business Units will be dynamically loaded here -->
-    </select>
+  <div id="logo-container">
+    <img
+      id="logo"
+      src="https://raw.githubusercontent.com/gmcglynn88/Management-Unit-Search/main/Consultinglogo%20(2).png"
+      alt="Company Logo"
+    >
   </div>
 
-  <div class="form-group">
-    <label for="activity-name">Activity Name</label>
-    <input type="text" id="activity-name" placeholder="Enter activity name">
-  </div>
+  <h1>Manage Business Units and Activity Codes</h1>
 
-  <div class="form-group">
-    <label for="category">Category</label>
-    <input type="text" id="category" placeholder="Enter category">
-  </div>
+  <!-- Business Units Dropdown -->
+  <label for="business-units">Select Business Units:</label>
+  <select id="business-units" multiple>
+    <!-- Options will be populated dynamically via JavaScript -->
+  </select>
 
-  <div class="form-group">
-    <label for="length">Length in Minutes</label>
-    <input type="number" id="length" placeholder="Enter length in minutes">
-  </div>
+  <hr>
 
-  <div class="form-group">
+  <!-- Activity Code Creation Form -->
+  <h2>Create Activity Code</h2>
+
+  <label for="activity-name">Activity Name:</label>
+  <input type="text" id="activity-name" placeholder="Enter activity name" required>
+
+  <label for="category">Category:</label>
+  <select id="category" required>
+    <option value="">Select category</option>
+    <option value="OnQueueWork">OnQueueWork</option>
+    <option value="Break">Break</option>
+    <option value="Meal">Meal</option>
+    <option value="Meeting">Meeting</option>
+    <option value="OffQueueWork">OffQueueWork</option>
+    <option value="TimeOff">TimeOff</option>
+    <option value="Training">Training</option>
+    <option value="Unavailable">Unavailable</option>
+    <option value="Unscheduled">Unscheduled</option>
+  </select>
+
+  <label for="length">Default Length (minutes):</label>
+  <input type="number" id="length" placeholder="Enter default length">
+
+  <label>Options:</label>
+
+  <!-- Aligning Checkboxes with Labels -->
+  <div class="checkbox-container">
+    <input type="checkbox" id="paid-time" value="countsAsPaidTime">
     <label for="paid-time">Counts as Paid Time</label>
-    <input type="checkbox" id="paid-time">
   </div>
 
-  <div class="form-group">
+  <div class="checkbox-container">
+    <input type="checkbox" id="work-time" value="countsAsWorkTime">
     <label for="work-time">Counts as Work Time</label>
-    <input type="checkbox" id="work-time">
   </div>
 
-  <div class="form-group">
-    <label for="time-off-selectable">Agent Time-Off Selectable</label>
-    <input type="checkbox" id="time-off-selectable">
+  <div class="checkbox-container">
+    <input type="checkbox" id="time-off-selectable" value="agentTimeOffSelectable">
+    <label for="time-off-selectable">Agent Time Off Selectable</label>
   </div>
 
-  <div class="form-group">
+  <div class="checkbox-container">
+    <input type="checkbox" id="shrinkage" value="countsTowardShrinkage">
     <label for="shrinkage">Counts Toward Shrinkage</label>
-    <input type="checkbox" id="shrinkage">
   </div>
 
-  <div class="form-group">
+  <div class="checkbox-container">
+    <input type="checkbox" id="planned-shrinkage" value="plannedShrinkage">
     <label for="planned-shrinkage">Planned Shrinkage</label>
-    <input type="checkbox" id="planned-shrinkage">
   </div>
 
-  <div class="form-group">
+  <div class="checkbox-container">
+    <input type="checkbox" id="interruptible" value="interruptible">
     <label for="interruptible">Interruptible</label>
-    <input type="checkbox" id="interruptible">
   </div>
 
-  <button id="create-button">Create Activity Code</button>
+  <button onclick="createActivityCode()">Create Activity Code for Selected Business Units</button>
+
+  <div id="results">
+    <!-- Results will be displayed here -->
+  </div>
 
   <script>
-    // Configuration with error checks
-    const API_BASE_URL = 'https://api.mypurecloud.ie';
-    const CLIENT_ID = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
-    const CLIENT_SECRET = 'G0qSDsjAtCutt5W-297Yqrwz9n4q3g3YdwpfnbchGcQ';
-    const PROXY_URL = 'https://cors-anywhere.herokuapp.com/'; // Proxy service to bypass CORS
-
-    if (!CLIENT_ID || !CLIENT_SECRET) {
-      alert('Error: Client ID or Secret not configured!');
-      console.error('Client credentials not properly configured');
+    // Function to fetch access token using Client ID and Client Secret
+    async function getAccessToken() {
+      const clientId = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
+      const clientSecret = 'G0qSDsjAtCutt5W-297Yqrwz9n4q3g3YdwpfnbchGcQ';
+      
+      const url = 'https://api.mypurecloud.ie/oauth/token';
+      
+      const body = new URLSearchParams();
+      body.append('grant_type', 'client_credentials');
+      body.append('client_id', clientId);
+      body.append('client_secret', clientSecret);
+      
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: body.toString(),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          return data.access_token;
+        } else {
+          console.error('Error fetching access token:', data);
+          throw new Error(data.error_description || 'Error fetching access token');
+        }
+      } catch (error) {
+        console.error('Network error fetching access token:', error);
+        throw new Error('Network error while fetching access token');
+      }
     }
 
-    const apiService = {
-      async getAccessToken() {
-        try {
-          const response = await fetch(`${PROXY_URL}${API_BASE_URL}/oauth/token`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-              grant_type: 'client_credentials',
-              client_id: CLIENT_ID,
-              client_secret: CLIENT_SECRET
-            })
-          });
+    // Function to fetch all business units (with pagination support)
+    async function fetchBusinessUnits() {
+      try {
+        const accessToken = await getAccessToken(); // Obtain access token
 
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error_description || `HTTP ${response.status} - Failed to get access token`);
-          }
+        const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits?pageSize=100';
+        
+        let businessUnits = [];
+        let nextPageUrl = apiUrl;
+
+        // Loop to handle pagination
+        while (nextPageUrl) {
+          const response = await fetch(nextPageUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+          });
 
           const data = await response.json();
-          return data.access_token;
-        } catch (error) {
-          console.error('Authentication Error:', error);
-          throw new Error(`Failed to get access token: ${error.message}`);
-        }
-      },
 
-      async fetchBusinessUnits(token) {
-        try {
-          const response = await fetch(`${PROXY_URL}${API_BASE_URL}/api/v2/workforcemanagement/businessunits?pageSize=100`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `HTTP ${response.status} - Failed to fetch business units`);
-          }
-
-          return await response.json();
-        } catch (error) {
-          console.error('Fetch Business Units Error:', error);
-          throw new Error(`Failed to fetch business units: ${error.message}`);
-        }
-      },
-
-      async createActivityCode(token, businessUnitId, activityData) {
-        try {
-          const response = await fetch(`${PROXY_URL}${API_BASE_URL}/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(activityData)
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `HTTP ${response.status} - Failed to create activity code`);
-          }
-
-          return await response.json();
-        } catch (error) {
-          console.error('Create Activity Code Error:', error);
-          throw new Error(`Failed to create activity code: ${error.message}`);
-        }
-      }
-    };
-
-    const appController = {
-      async init() {
-        try {
-          this.setupEventListeners();
-          await this.loadBusinessUnits();
-        } catch (error) {
-          this.showError(`Initialization failed: ${error.message}`);
-        }
-      },
-
-      setupEventListeners() {
-        document.getElementById('create-button').addEventListener('click', () => {
-          this.createActivityCode().catch(error => {
-            this.showError(error.message);
-          });
-        });
-      },
-
-      async loadBusinessUnits() {
-        this.showMessage('Loading business units...', 'loading');
-        document.getElementById('create-button').disabled = true;
-
-        try {
-          const token = await apiService.getAccessToken();
-          const data = await apiService.fetchBusinessUnits(token);
-          
-          const businessUnitsSelect = document.getElementById('business-units');
-          businessUnitsSelect.innerHTML = '';
-          
-          if (data.entities && data.entities.length > 0) {
-            data.entities.forEach(unit => {
-              if (unit.name) {
-                const option = document.createElement('option');
-                option.value = unit.id;
-                option.textContent = unit.name;
-                businessUnitsSelect.appendChild(option);
-              }
-            });
-            this.showMessage('Business units loaded successfully', 'success');
-            document.getElementById('create-button').disabled = false;
+          if (response.ok) {
+            // Concatenate current page of business units
+            businessUnits = businessUnits.concat(data.entities);
+            
+            // Get the next page URL (if available)
+            nextPageUrl = data.pageCount > data.pageNumber ? `${apiUrl}&pageNumber=${data.pageNumber + 1}` : null;
           } else {
-            throw new Error('No business units found');
+            console.error('Error fetching business units:', data);
+            throw new Error(data.message || 'Error fetching business units');
           }
-        } catch (error) {
-          document.getElementById('business-units').innerHTML = '<option value="" disabled>Failed to load business units</option>';
-          throw error;
         }
-      },
 
-      async createActivityCode() {
-        const name = document.getElementById('activity-name').value.trim();
-        const category = document.getElementById('category').value;
-        const selectedUnits = Array.from(document.getElementById('business-units').selectedOptions);
-        
-        if (!name) throw new Error('Activity name is required');
-        if (!category) throw new Error('Category is required');
-        if (selectedUnits.length === 0) throw new Error('Select at least one business unit');
-
-        this.showMessage('Creating activity code...', 'loading');
-        document.getElementById('create-button').disabled = true;
-
-        try {
-          const token = await apiService.getAccessToken();
-          const activityData = this.getActivityDataFromForm();
-          
-          const results = [];
-          for (const unit of selectedUnits) {
-            try {
-              const result = await apiService.createActivityCode(token, unit.value, activityData);
-              results.push({ success: true, unit: unit.textContent, data: result });
-            } catch (error) {
-              results.push({ success: false, unit: unit.textContent, error: error.message });
-            }
-          }
-
-          this.showCreationResults(results);
-        } finally {
-          document.getElementById('create-button').disabled = false;
-        }
-      },
-
-      getActivityDataFromForm() {
-        return {
-          name: document.getElementById('activity-name').value.trim(),
-          category: document.getElementById('category').value,
-          lengthInMinutes: parseInt(document.getElementById('length').value) || null,
-          countsAsPaidTime: document.getElementById('paid-time').checked,
-          countsAsWorkTime: document.getElementById('work-time').checked,
-          agentTimeOffSelectable: document.getElementById('time-off-selectable').checked,
-          countsTowardShrinkage: document.getElementById('shrinkage').checked,
-          plannedShrinkage: document.getElementById('planned-shrinkage').checked,
-          interruptible: document.getElementById('interruptible').checked
-        };
-      },
-
-      showCreationResults(results) {
-        const successCount = results.filter(r => r.success).length;
-        const errorCount = results.filter(r => !r.success).length;
-
-        if (errorCount === 0) {
-          this.showMessage(`Successfully created activity code in ${successCount} business units`, 'success');
-        } else {
-          const errorList = results.filter(r => !r.success)
-            .map(r => `• ${r.unit}: ${r.error}`)
-            .join('<br>');
-          
-          this.showMessage(
-            `Created in ${successCount} business units, failed in ${errorCount}:<br>${errorList}`,
-            errorCount === results.length ? 'error' : 'success'
-          );
-        }
-      },
-
-      showMessage(message, type = 'info') {
-        const resultsDiv = document.getElementById('results');
-        resultsDiv.innerHTML = `<p class="${type}">${message}</p>`;
-      },
-
-      showError(error) {
-        console.error(error);
-        this.showMessage(`Error: ${error.message || error}`, 'error');
+        // Populate the dropdown after fetching all business units
+        const businessUnitsSelect = document.getElementById('business-units');
+        businessUnits.forEach(unit => {
+          const option = document.createElement('option');
+          option.value = unit.id;
+          option.textContent = unit.name;
+          businessUnitsSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error in fetchBusinessUnits:', error);
+        document.getElementById('results').innerHTML = `<p class="error">Error loading business units: ${error.message}</p>`;
       }
-    };
+    }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      appController.init().catch(error => {
-        console.error('Application initialization failed:', error);
-        document.getElementById('results').innerHTML = 
-          `<p class="error">Application failed to initialize: ${error.message}</p>`;
-      });
-    });
+    // Function to create the activity code
+    async function createActivityCode() {
+      // Clear previous results
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+      
+      // Validate form inputs
+      const name = document.getElementById('activity-name').value.trim();
+      const category = document.getElementById('category').value;
+      const businessUnits = Array.from(document.getElementById('business-units').selectedOptions).map(option => option.value);
+      
+      if (!name) {
+        resultsDiv.innerHTML = '<p class="error">Please enter an activity name</p>';
+        return;
+      }
+      
+      if (!category) {
+        resultsDiv.innerHTML = '<p class="error">Please select a category</p>';
+        return;
+      }
+      
+      if (businessUnits.length === 0) {
+        resultsDiv.innerHTML = '<p class="error">Please select at least one business unit</p>';
+        return;
+      }
+      
+      const lengthInMinutes = parseInt(document.getElementById('length').value, 10) || null;
+      const countsAsPaidTime = document.getElementById('paid-time').checked;
+      const countsAsWorkTime = document.getElementById('work-time').checked;
+      const agentTimeOffSelectable = document.getElementById('time-off-selectable').checked;
+      const countsTowardShrinkage = document.getElementById('shrinkage').checked;
+      const plannedShrinkage = document.getElementById('planned-shrinkage').checked;
+      const interruptible = document.getElementById('interruptible').checked;
+
+      try {
+        const accessToken = await getAccessToken(); // Get access token for API authentication
+        
+        // Create activity code in each selected business unit
+        let successCount = 0;
+        let errorCount = 0;
+        let errorMessages = [];
+        
+        for (const businessUnitId of businessUnits) {
+          const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`;
+          
+          try {
+            const response = await fetch(createUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name,
+                category,
+                lengthInMinutes,
+                countsAsPaidTime,
+                countsAsWorkTime,
+                agentTimeOffSelectable,
+                countsTowardShrinkage,
+                plannedShrinkage,
+                interruptible
+              }),
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+              console.log(`Activity code created in ${businessUnitId}:`, data);
+              successCount++;
+            } else {
+              console.error(`Error creating activity code in ${businessUnitId}:`, data);
+              errorCount++;
+              errorMessages.push(`Business Unit ${businessUnitId}: ${data.message || 'Unknown error'}`);
+            }
+          } catch (error) {
+            console.error(`Error creating activity code in ${businessUnitId}:`, error);
+            errorCount++;
+            errorMessages.push(`Business Unit ${businessUnitId}: ${error.message}`);
+          }
+        }
+        
+        // Display results
+        if (errorCount === 0) {
+          resultsDiv.innerHTML = `<p class="success">Activity code created successfully in all ${successCount} business units.</p>`;
+        } else if (successCount === 0) {
+          resultsDiv.innerHTML = `<p class="error">Failed to create activity code in all business units.</p>
+                                 <ul>${errorMessages.map(msg => `<li>${msg}</li>`).join('')}</ul>`;
+        } else {
+          resultsDiv.innerHTML = `<p class="success">Activity code created successfully in ${successCount} business units.</p>
+                                 <p class="error">Failed to create in ${errorCount} business units:</p>
+                                 <ul>${errorMessages.map(msg => `<li>${msg}</li>`).join('')}</ul>`;
+        }
+      } catch (error) {
+        console.error('Error in createActivityCode:', error);
+        resultsDiv.innerHTML = `<p class="error">Error creating activity code: ${error.message}</p>`;
+      }
+    }
+
+    // Fetch business units on page load
+    document.addEventListener('DOMContentLoaded', fetchBusinessUnits);
   </script>
 </body>
 </html>
