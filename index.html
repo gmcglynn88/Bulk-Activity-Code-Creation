@@ -18,11 +18,11 @@
       margin-bottom: 20px;
     }
     #logo {
-      width: 300px; /* Adjust as needed */
+      width: 300px;
     }
 
     h1 {
-      font-size: 24px; /* Match the font size of the second script */
+      font-size: 24px;
     }
 
     label, select, input, button {
@@ -30,66 +30,53 @@
       margin: 10px 0;
     }
 
-    /* Specific styling for labels */
     label {
-      font-weight: bold; /* Make all labels bold */
+      font-weight: bold;
     }
 
-    /* Increase size of input boxes and dropdowns */
     select, input, button {
       margin-top: 10px;
-      padding: 12px;  /* Increased padding for larger size */
+      padding: 12px;
       width: 100%;
-      max-width: 400px;  /* Adjust max-width for larger fields */
-      font-size: 16px;   /* Increased font size */
-      box-sizing: border-box; /* Include padding in width calculation */
+      max-width: 400px;
+      font-size: 16px;
+      box-sizing: border-box;
     }
 
-    /* Style for the results */
     #results {
       margin-top: 20px;
     }
 
-    /* Non-bold result text */
     #results p {
       font-weight: normal;
     }
 
-    /* Align checkboxes with labels */
     .checkbox-container {
       display: flex;
       align-items: center;
-      margin: 5px 0; /* Reduced margin for neatness */
+      margin: 5px 0;
       width: 100%;
       max-width: 400px;
-      flex-wrap: nowrap; /* Prevents wrapping of text */
+      flex-wrap: nowrap;
     }
 
     .checkbox-container label {
-      flex-grow: 1; /* Ensures the label stays aligned properly */
-      white-space: nowrap; /* Prevents the text from wrapping */
-      font-weight: normal; /* Make checkbox labels normal weight */
+      flex-grow: 1;
+      white-space: nowrap;
+      font-weight: normal;
       margin: 0;
     }
 
     .checkbox-container input[type="checkbox"] {
-      margin-right: 10px;  /* Space between checkbox and label */
-      width: auto; /* Prevent checkbox from stretching */
+      margin-right: 10px;
+      width: auto;
     }
 
-    /* Ensure consistent width for inputs */
-    .input-container, .checkbox-container {
-      width: 100%;
-      max-width: 400px;
-    }
-    
-    /* Style for multiple select */
     select[multiple] {
       height: auto;
       min-height: 120px;
     }
     
-    /* Style for buttons */
     button {
       background-color: #007bff;
       color: white;
@@ -103,14 +90,22 @@
       background-color: #0056b3;
     }
     
-    /* Error message styling */
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    
     .error {
       color: #dc3545;
     }
     
-    /* Success message styling */
     .success {
       color: #28a745;
+    }
+    
+    .loading {
+      color: #6c757d;
+      font-style: italic;
     }
   </style>
 </head>
@@ -129,7 +124,7 @@
   <!-- Business Units Dropdown -->
   <label for="business-units">Select Business Units:</label>
   <select id="business-units" multiple>
-    <!-- Options will be populated dynamically via JavaScript -->
+    <option value="" disabled>Loading business units...</option>
   </select>
 
   <hr>
@@ -159,7 +154,6 @@
 
   <label>Options:</label>
 
-  <!-- Aligning Checkboxes with Labels -->
   <div class="checkbox-container">
     <input type="checkbox" id="paid-time" value="countsAsPaidTime">
     <label for="paid-time">Counts as Paid Time</label>
@@ -190,10 +184,10 @@
     <label for="interruptible">Interruptible</label>
   </div>
 
-  <button onclick="createActivityCode()">Create Activity Code for Selected Business Units</button>
+  <button id="create-button" onclick="createActivityCode()" disabled>Create Activity Code for Selected Business Units</button>
 
   <div id="results">
-    <!-- Results will be displayed here -->
+    <p class="loading">Loading business units...</p>
   </div>
 
   <script>
@@ -218,73 +212,80 @@
           body: body.toString(),
         });
         
-        const data = await response.json();
-        
-        if (response.ok) {
-          return data.access_token;
-        } else {
-          console.error('Error fetching access token:', data);
-          throw new Error(data.error_description || 'Error fetching access token');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error_description || 'Failed to authenticate');
         }
+        
+        const data = await response.json();
+        return data.access_token;
       } catch (error) {
-        console.error('Network error fetching access token:', error);
-        throw new Error('Network error while fetching access token');
+        console.error('Authentication error:', error);
+        throw new Error(`Authentication failed: ${error.message}`);
       }
     }
 
-    // Function to fetch all business units (with pagination support)
+    // Function to fetch all business units
     async function fetchBusinessUnits() {
+      const resultsDiv = document.getElementById('results');
+      const businessUnitsSelect = document.getElementById('business-units');
+      const createButton = document.getElementById('create-button');
+      
       try {
-        const accessToken = await getAccessToken(); // Obtain access token
-
+        resultsDiv.innerHTML = '<p class="loading">Loading business units...</p>';
+        
+        const accessToken = await getAccessToken();
         const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits?pageSize=100';
         
         let businessUnits = [];
-        let nextPageUrl = apiUrl;
-
-        // Loop to handle pagination
-        while (nextPageUrl) {
-          const response = await fetch(nextPageUrl, {
+        let pageNumber = 1;
+        let totalPages = 1;
+        
+        do {
+          const response = await fetch(`${apiUrl}&pageNumber=${pageNumber}`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${accessToken}`,
               'Content-Type': 'application/json'
             },
           });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            // Concatenate current page of business units
-            businessUnits = businessUnits.concat(data.entities);
-            
-            // Get the next page URL (if available)
-            nextPageUrl = data.pageCount > data.pageNumber ? `${apiUrl}&pageNumber=${data.pageNumber + 1}` : null;
-          } else {
-            console.error('Error fetching business units:', data);
-            throw new Error(data.message || 'Error fetching business units');
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to fetch business units');
           }
-        }
-
-        // Populate the dropdown after fetching all business units
-        const businessUnitsSelect = document.getElementById('business-units');
+          
+          const data = await response.json();
+          businessUnits = businessUnits.concat(data.entities);
+          totalPages = data.pageCount;
+          pageNumber++;
+          
+        } while (pageNumber <= totalPages);
+        
+        // Populate the dropdown
+        businessUnitsSelect.innerHTML = '';
         businessUnits.forEach(unit => {
           const option = document.createElement('option');
           option.value = unit.id;
           option.textContent = unit.name;
           businessUnitsSelect.appendChild(option);
         });
+        
+        resultsDiv.innerHTML = '<p class="success">Business units loaded successfully</p>';
+        createButton.disabled = false;
+        
       } catch (error) {
-        console.error('Error in fetchBusinessUnits:', error);
-        document.getElementById('results').innerHTML = `<p class="error">Error loading business units: ${error.message}</p>`;
+        console.error('Error loading business units:', error);
+        businessUnitsSelect.innerHTML = '<option value="" disabled>Failed to load business units</option>';
+        resultsDiv.innerHTML = `<p class="error">Error loading business units: ${error.message}</p>`;
+        createButton.disabled = true;
       }
     }
 
     // Function to create the activity code
     async function createActivityCode() {
-      // Clear previous results
       const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = '';
+      const createButton = document.getElementById('create-button');
       
       // Validate form inputs
       const name = document.getElementById('activity-name').value.trim();
@@ -306,6 +307,7 @@
         return;
       }
       
+      // Get form values
       const lengthInMinutes = parseInt(document.getElementById('length').value, 10) || null;
       const countsAsPaidTime = document.getElementById('paid-time').checked;
       const countsAsWorkTime = document.getElementById('work-time').checked;
@@ -314,72 +316,74 @@
       const plannedShrinkage = document.getElementById('planned-shrinkage').checked;
       const interruptible = document.getElementById('interruptible').checked;
 
+      // Disable button during processing
+      createButton.disabled = true;
+      resultsDiv.innerHTML = '<p class="loading">Creating activity codes...</p>';
+      
       try {
-        const accessToken = await getAccessToken(); // Get access token for API authentication
+        const accessToken = await getAccessToken();
         
         // Create activity code in each selected business unit
         let successCount = 0;
-        let errorCount = 0;
         let errorMessages = [];
         
         for (const businessUnitId of businessUnits) {
-          const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`;
-          
           try {
-            const response = await fetch(createUrl, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                name,
-                category,
-                lengthInMinutes,
-                countsAsPaidTime,
-                countsAsWorkTime,
-                agentTimeOffSelectable,
-                countsTowardShrinkage,
-                plannedShrinkage,
-                interruptible
-              }),
-            });
+            const response = await fetch(
+              `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  name,
+                  category,
+                  lengthInMinutes,
+                  countsAsPaidTime,
+                  countsAsWorkTime,
+                  agentTimeOffSelectable,
+                  countsTowardShrinkage,
+                  plannedShrinkage,
+                  interruptible
+                }),
+              }
+            );
             
-            const data = await response.json();
-            
-            if (response.ok) {
-              console.log(`Activity code created in ${businessUnitId}:`, data);
-              successCount++;
-            } else {
-              console.error(`Error creating activity code in ${businessUnitId}:`, data);
-              errorCount++;
-              errorMessages.push(`Business Unit ${businessUnitId}: ${data.message || 'Unknown error'}`);
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.message || 'Unknown error');
             }
+            
+            successCount++;
           } catch (error) {
-            console.error(`Error creating activity code in ${businessUnitId}:`, error);
-            errorCount++;
-            errorMessages.push(`Business Unit ${businessUnitId}: ${error.message}`);
+            const businessUnitName = document.getElementById('business-units')
+              .querySelector(`option[value="${businessUnitId}"]`).textContent;
+            errorMessages.push(`${businessUnitName}: ${error.message}`);
           }
         }
         
         // Display results
-        if (errorCount === 0) {
-          resultsDiv.innerHTML = `<p class="success">Activity code created successfully in all ${successCount} business units.</p>`;
+        if (errorMessages.length === 0) {
+          resultsDiv.innerHTML = `<p class="success">Activity code created successfully in ${successCount} business units</p>`;
         } else if (successCount === 0) {
-          resultsDiv.innerHTML = `<p class="error">Failed to create activity code in all business units.</p>
+          resultsDiv.innerHTML = `<p class="error">Failed to create activity code in all business units</p>
                                  <ul>${errorMessages.map(msg => `<li>${msg}</li>`).join('')}</ul>`;
         } else {
-          resultsDiv.innerHTML = `<p class="success">Activity code created successfully in ${successCount} business units.</p>
-                                 <p class="error">Failed to create in ${errorCount} business units:</p>
+          resultsDiv.innerHTML = `<p class="success">Activity code created successfully in ${successCount} business units</p>
+                                 <p class="error">Failed to create in ${errorMessages.length} business units:</p>
                                  <ul>${errorMessages.map(msg => `<li>${msg}</li>`).join('')}</ul>`;
         }
       } catch (error) {
-        console.error('Error in createActivityCode:', error);
+        console.error('Error creating activity code:', error);
         resultsDiv.innerHTML = `<p class="error">Error creating activity code: ${error.message}</p>`;
+      } finally {
+        createButton.disabled = false;
       }
     }
 
-    // Fetch business units on page load
+    // Initialize the page
     document.addEventListener('DOMContentLoaded', fetchBusinessUnits);
   </script>
 </body>
