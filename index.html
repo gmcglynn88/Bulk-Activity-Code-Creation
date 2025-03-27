@@ -6,32 +6,118 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css2?family=Proxima+Nova&display=swap" rel="stylesheet">
   <style>
-    /* [Previous CSS styles remain exactly the same] */
     body {
       font-family: 'Proxima Nova', Arial, sans-serif;
       margin: 20px;
       padding: 20px;
       background-color: #f5f5f5;
     }
-    /* [Rest of your CSS...] */
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+    }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .loading {
+      color: #007bff;
+    }
+    .error {
+      color: red;
+    }
+    .success {
+      color: green;
+    }
   </style>
 </head>
 <body>
-  <!-- [Previous HTML structure remains the same until the script section] -->
-  
+  <h1>Activity Code Management</h1>
+  <div id="results"></div>
+
+  <div class="form-group">
+    <label for="business-units">Select Business Unit(s)</label>
+    <select id="business-units" multiple>
+      <!-- Business Units will be dynamically loaded here -->
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="activity-name">Activity Name</label>
+    <input type="text" id="activity-name" placeholder="Enter activity name">
+  </div>
+
+  <div class="form-group">
+    <label for="category">Category</label>
+    <input type="text" id="category" placeholder="Enter category">
+  </div>
+
+  <div class="form-group">
+    <label for="length">Length in Minutes</label>
+    <input type="number" id="length" placeholder="Enter length in minutes">
+  </div>
+
+  <div class="form-group">
+    <label for="paid-time">Counts as Paid Time</label>
+    <input type="checkbox" id="paid-time">
+  </div>
+
+  <div class="form-group">
+    <label for="work-time">Counts as Work Time</label>
+    <input type="checkbox" id="work-time">
+  </div>
+
+  <div class="form-group">
+    <label for="time-off-selectable">Agent Time-Off Selectable</label>
+    <input type="checkbox" id="time-off-selectable">
+  </div>
+
+  <div class="form-group">
+    <label for="shrinkage">Counts Toward Shrinkage</label>
+    <input type="checkbox" id="shrinkage">
+  </div>
+
+  <div class="form-group">
+    <label for="planned-shrinkage">Planned Shrinkage</label>
+    <input type="checkbox" id="planned-shrinkage">
+  </div>
+
+  <div class="form-group">
+    <label for="interruptible">Interruptible</label>
+    <input type="checkbox" id="interruptible">
+  </div>
+
+  <button id="create-button">Create Activity Code</button>
+
   <script>
     // Configuration with error checks
     const API_BASE_URL = 'https://api.mypurecloud.ie';
     const CLIENT_ID = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
     const CLIENT_SECRET = 'G0qSDsjAtCutt5W-297Yqrwz9n4q3g3YdwpfnbchGcQ';
 
-    // Verify configuration
     if (!CLIENT_ID || !CLIENT_SECRET) {
       alert('Error: Client ID or Secret not configured!');
       console.error('Client credentials not properly configured');
     }
 
-    // Enhanced API Service
     const apiService = {
       async getAccessToken() {
         try {
@@ -49,9 +135,7 @@
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error_description || 
-                          errorData.error || 
-                          `HTTP ${response.status} - Authentication failed`);
+            throw new Error(errorData.error_description || `HTTP ${response.status} - Authentication failed`);
           }
 
           const data = await response.json();
@@ -73,8 +157,7 @@
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || 
-                          `HTTP ${response.status} - Failed to fetch business units`);
+            throw new Error(errorData.message || `HTTP ${response.status} - Failed to fetch business units`);
           }
 
           return await response.json();
@@ -86,22 +169,18 @@
 
       async createActivityCode(token, businessUnitId, activityData) {
         try {
-          const response = await fetch(
-            `${API_BASE_URL}/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(activityData)
-            }
-          );
+          const response = await fetch(`${API_BASE_URL}/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(activityData)
+          });
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || 
-                          `HTTP ${response.status} - Failed to create activity code`);
+            throw new Error(errorData.message || `HTTP ${response.status} - Failed to create activity code`);
           }
 
           return await response.json();
@@ -112,7 +191,6 @@
       }
     };
 
-    // UI Controller
     const appController = {
       async init() {
         try {
@@ -157,14 +235,12 @@
             throw new Error('No business units found');
           }
         } catch (error) {
-          document.getElementById('business-units').innerHTML = 
-            '<option value="" disabled>Failed to load business units</option>';
+          document.getElementById('business-units').innerHTML = '<option value="" disabled>Failed to load business units</option>';
           throw error;
         }
       },
 
       async createActivityCode() {
-        // Validate inputs
         const name = document.getElementById('activity-name').value.trim();
         const category = document.getElementById('category').value;
         const selectedUnits = Array.from(document.getElementById('business-units').selectedOptions);
@@ -239,7 +315,6 @@
       }
     };
 
-    // Initialize the application
     document.addEventListener('DOMContentLoaded', () => {
       appController.init().catch(error => {
         console.error('Application initialization failed:', error);
