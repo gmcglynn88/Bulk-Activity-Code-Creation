@@ -42,6 +42,7 @@
       width: 100%;
       max-width: 400px;  /* Adjust max-width for larger fields */
       font-size: 16px;   /* Increased font size */
+      box-sizing: border-box; /* Include padding in width calculation */
     }
 
     /* Style for the results */
@@ -67,16 +68,49 @@
     .checkbox-container label {
       flex-grow: 1; /* Ensures the label stays aligned properly */
       white-space: nowrap; /* Prevents the text from wrapping */
+      font-weight: normal; /* Make checkbox labels normal weight */
+      margin: 0;
     }
 
     .checkbox-container input[type="checkbox"] {
       margin-right: 10px;  /* Space between checkbox and label */
+      width: auto; /* Prevent checkbox from stretching */
     }
 
     /* Ensure consistent width for inputs */
     .input-container, .checkbox-container {
       width: 100%;
       max-width: 400px;
+    }
+    
+    /* Style for multiple select */
+    select[multiple] {
+      height: auto;
+      min-height: 120px;
+    }
+    
+    /* Style for buttons */
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    
+    button:hover {
+      background-color: #0056b3;
+    }
+    
+    /* Error message styling */
+    .error {
+      color: #dc3545;
+    }
+    
+    /* Success message styling */
+    .success {
+      color: #28a745;
     }
   </style>
 </head>
@@ -97,12 +131,6 @@
   <select id="business-units" multiple>
     <!-- Options will be populated dynamically via JavaScript -->
   </select>
-
-  <button onclick="createActivityCode()">Create Activity Code for Selected Business Units</button>
-
-  <div id="results">
-    <!-- Results will be displayed here -->
-  </div>
 
   <hr>
 
@@ -162,7 +190,11 @@
     <label for="interruptible">Interruptible</label>
   </div>
 
-  <div id="results"></div>
+  <button onclick="createActivityCode()">Create Activity Code for Selected Business Units</button>
+
+  <div id="results">
+    <!-- Results will be displayed here -->
+  </div>
 
   <script>
     // Function to fetch access token using Client ID and Client Secret
@@ -177,70 +209,103 @@
       body.append('client_id', clientId);
       body.append('client_secret', clientSecret);
       
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: body.toString(),
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        return data.access_token;
-      } else {
-        console.error('Error fetching access token:', data);
-        throw new Error('Error fetching access token');
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: body.toString(),
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          return data.access_token;
+        } else {
+          console.error('Error fetching access token:', data);
+          throw new Error(data.error_description || 'Error fetching access token');
+        }
+      } catch (error) {
+        console.error('Network error fetching access token:', error);
+        throw new Error('Network error while fetching access token');
       }
     }
 
     // Function to fetch all business units (with pagination support)
     async function fetchBusinessUnits() {
-      const accessToken = await getAccessToken(); // Obtain access token
+      try {
+        const accessToken = await getAccessToken(); // Obtain access token
 
-      const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits';
-      
-      let businessUnits = [];
-      let nextPageUrl = apiUrl;
+        const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits?pageSize=100';
+        
+        let businessUnits = [];
+        let nextPageUrl = apiUrl;
 
-      // Loop to handle pagination
-      while (nextPageUrl) {
-        const response = await fetch(nextPageUrl, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-          },
-        });
+        // Loop to handle pagination
+        while (nextPageUrl) {
+          const response = await fetch(nextPageUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+          });
 
-        const data = await response.json();
+          const data = await response.json();
 
-        if (response.ok) {
-          // Concatenate current page of business units
-          businessUnits = businessUnits.concat(data.entities);
-          
-          // Get the next page URL (if available)
-          nextPageUrl = data.pageNext;
-        } else {
-          console.error('Error fetching business units:', data);
-          nextPageUrl = null; // Stop pagination if an error occurs
+          if (response.ok) {
+            // Concatenate current page of business units
+            businessUnits = businessUnits.concat(data.entities);
+            
+            // Get the next page URL (if available)
+            nextPageUrl = data.pageCount > data.pageNumber ? `${apiUrl}&pageNumber=${data.pageNumber + 1}` : null;
+          } else {
+            console.error('Error fetching business units:', data);
+            throw new Error(data.message || 'Error fetching business units');
+          }
         }
-      }
 
-      // Populate the dropdown after fetching all business units
-      const businessUnitsSelect = document.getElementById('business-units');
-      businessUnits.forEach(unit => {
-        const option = document.createElement('option');
-        option.value = unit.id;
-        option.textContent = unit.name;
-        businessUnitsSelect.appendChild(option);
-      });
+        // Populate the dropdown after fetching all business units
+        const businessUnitsSelect = document.getElementById('business-units');
+        businessUnits.forEach(unit => {
+          const option = document.createElement('option');
+          option.value = unit.id;
+          option.textContent = unit.name;
+          businessUnitsSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error('Error in fetchBusinessUnits:', error);
+        document.getElementById('results').innerHTML = `<p class="error">Error loading business units: ${error.message}</p>`;
+      }
     }
 
     // Function to create the activity code
     async function createActivityCode() {
-      const name = document.getElementById('activity-name').value;
+      // Clear previous results
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+      
+      // Validate form inputs
+      const name = document.getElementById('activity-name').value.trim();
       const category = document.getElementById('category').value;
+      const businessUnits = Array.from(document.getElementById('business-units').selectedOptions).map(option => option.value);
+      
+      if (!name) {
+        resultsDiv.innerHTML = '<p class="error">Please enter an activity name</p>';
+        return;
+      }
+      
+      if (!category) {
+        resultsDiv.innerHTML = '<p class="error">Please select a category</p>';
+        return;
+      }
+      
+      if (businessUnits.length === 0) {
+        resultsDiv.innerHTML = '<p class="error">Please select at least one business unit</p>';
+        return;
+      }
+      
       const lengthInMinutes = parseInt(document.getElementById('length').value, 10) || null;
       const countsAsPaidTime = document.getElementById('paid-time').checked;
       const countsAsWorkTime = document.getElementById('work-time').checked;
@@ -248,43 +313,74 @@
       const countsTowardShrinkage = document.getElementById('shrinkage').checked;
       const plannedShrinkage = document.getElementById('planned-shrinkage').checked;
       const interruptible = document.getElementById('interruptible').checked;
-      const businessUnits = Array.from(document.getElementById('business-units').selectedOptions).map(option => option.value);
-
-      const accessToken = await getAccessToken(); // Get access token for API authentication
-
-      const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/{businessUnitId}/activitycodes`;
 
       try {
-        const response = await fetch(createUrl, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name,
-            category,
-            lengthInMinutes,
-            countsAsPaidTime,
-            countsAsWorkTime,
-            agentTimeOffSelectable,
-            countsTowardShrinkage,
-            plannedShrinkage,
-            interruptible,
-            businessUnits,
-          }),
-        });
-        const data = await response.json();
-        console.log('Activity code created:', data);
-        document.getElementById('results').innerHTML = `<p>Activity code created successfully.</p>`;
+        const accessToken = await getAccessToken(); // Get access token for API authentication
+        
+        // Create activity code in each selected business unit
+        let successCount = 0;
+        let errorCount = 0;
+        let errorMessages = [];
+        
+        for (const businessUnitId of businessUnits) {
+          const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`;
+          
+          try {
+            const response = await fetch(createUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name,
+                category,
+                lengthInMinutes,
+                countsAsPaidTime,
+                countsAsWorkTime,
+                agentTimeOffSelectable,
+                countsTowardShrinkage,
+                plannedShrinkage,
+                interruptible
+              }),
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+              console.log(`Activity code created in ${businessUnitId}:`, data);
+              successCount++;
+            } else {
+              console.error(`Error creating activity code in ${businessUnitId}:`, data);
+              errorCount++;
+              errorMessages.push(`Business Unit ${businessUnitId}: ${data.message || 'Unknown error'}`);
+            }
+          } catch (error) {
+            console.error(`Error creating activity code in ${businessUnitId}:`, error);
+            errorCount++;
+            errorMessages.push(`Business Unit ${businessUnitId}: ${error.message}`);
+          }
+        }
+        
+        // Display results
+        if (errorCount === 0) {
+          resultsDiv.innerHTML = `<p class="success">Activity code created successfully in all ${successCount} business units.</p>`;
+        } else if (successCount === 0) {
+          resultsDiv.innerHTML = `<p class="error">Failed to create activity code in all business units.</p>
+                                 <ul>${errorMessages.map(msg => `<li>${msg}</li>`).join('')}</ul>`;
+        } else {
+          resultsDiv.innerHTML = `<p class="success">Activity code created successfully in ${successCount} business units.</p>
+                                 <p class="error">Failed to create in ${errorCount} business units:</p>
+                                 <ul>${errorMessages.map(msg => `<li>${msg}</li>`).join('')}</ul>`;
+        }
       } catch (error) {
-        console.error('Error creating activity code:', error);
-        document.getElementById('results').innerHTML = `<p>Error creating activity code: ${error.message}</p>`;
+        console.error('Error in createActivityCode:', error);
+        resultsDiv.innerHTML = `<p class="error">Error creating activity code: ${error.message}</p>`;
       }
     }
 
     // Fetch business units on page load
-    fetchBusinessUnits();
+    document.addEventListener('DOMContentLoaded', fetchBusinessUnits);
   </script>
 </body>
 </html>
