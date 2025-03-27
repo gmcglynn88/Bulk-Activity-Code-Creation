@@ -112,6 +112,7 @@
     const API_BASE_URL = 'https://api.mypurecloud.ie';
     const CLIENT_ID = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
     const CLIENT_SECRET = 'G0qSDsjAtCutt5W-297Yqrwz9n4q3g3YdwpfnbchGcQ';
+    const PROXY_URL = 'https://cors-anywhere.herokuapp.com/'; // Proxy service to bypass CORS
 
     if (!CLIENT_ID || !CLIENT_SECRET) {
       alert('Error: Client ID or Secret not configured!');
@@ -121,7 +122,7 @@
     const apiService = {
       async getAccessToken() {
         try {
-          const response = await fetch(`${API_BASE_URL}/oauth/token`, {
+          const response = await fetch(`${PROXY_URL}${API_BASE_URL}/oauth/token`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',
@@ -135,7 +136,7 @@
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error_description || `HTTP ${response.status} - Authentication failed`);
+            throw new Error(errorData.error_description || `HTTP ${response.status} - Failed to get access token`);
           }
 
           const data = await response.json();
@@ -148,7 +149,7 @@
 
       async fetchBusinessUnits(token) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v2/workforcemanagement/businessunits?pageSize=100`, {
+          const response = await fetch(`${PROXY_URL}${API_BASE_URL}/api/v2/workforcemanagement/businessunits?pageSize=100`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -169,7 +170,7 @@
 
       async createActivityCode(token, businessUnitId, activityData) {
         try {
-          const response = await fetch(`${API_BASE_URL}/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`, {
+          const response = await fetch(`${PROXY_URL}${API_BASE_URL}/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
