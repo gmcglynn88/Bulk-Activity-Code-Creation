@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Activity Code Management</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Include the Proxima Nova font -->
+  <link href="https://fonts.googleapis.com/css2?family=Proxima+Nova&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Proxima Nova', Arial, sans-serif;
+      margin: 20px;
+      padding: 20px;
+    }
+    /* Center the logo at the top */
+    #logo-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #logo {
+      width: 300px; /* Adjust as needed */
+    }
+
+    h1 {
+      font-size: 24px; /* Match the font size of the second script */
+    }
+
+    label, select, input, button {
+      display: block;
+      margin: 10px 0;
+    }
+
+    /* Specific styling for labels */
+    label {
+      font-weight: bold; /* Make all labels bold */
+    }
+
+    /* Increase size of input boxes and dropdowns */
+    select, input, button {
+      margin-top: 10px;
+      padding: 12px;  /* Increased padding for larger size */
+      width: 100%;
+      max-width: 400px;  /* Adjust max-width for larger fields */
+      font-size: 16px;   /* Increased font size */
+    }
+
+    /* Style for the results */
+    #results {
+      margin-top: 20px;
+    }
+
+    /* Non-bold result text */
+    #results p {
+      font-weight: normal;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="logo-container">
+    <img
+      id="logo"
+      src="https://raw.githubusercontent.com/gmcglynn88/Management-Unit-Search/main/Consultinglogo%20(2).png"
+      alt="Company Logo"
+    >
+  </div>
+
+  <h1>Create Activity Code</h1>
+
+  <label for="activity-name">Activity Name:</label>
+  <input type="text" id="activity-name" placeholder="Enter activity name" required>
+
+  <label for="category">Category:</label>
+  <select id="category" required>
+    <option value="">Select category</option>
+    <option value="OnQueueWork">OnQueueWork</option>
+    <option value="Break">Break</option>
+    <option value="Meal">Meal</option>
+    <option value="Meeting">Meeting</option>
+    <option value="OffQueueWork">OffQueueWork</option>
+    <option value="TimeOff">TimeOff</option>
+    <option value="Training">Training</option>
+    <option value="Unavailable">Unavailable</option>
+    <option value="Unscheduled">Unscheduled</option>
+  </select>
+
+  <label for="length">Default Length (minutes):</label>
+  <input type="number" id="length" placeholder="Enter default length">
+
+  <label>Options:</label>
+  <input type="checkbox" id="paid-time" value="countsAsPaidTime">
+  <label for="paid-time">Counts as Paid Time</label>
+
+  <input type="checkbox" id="work-time" value="countsAsWorkTime">
+  <label for="work-time">Counts as Work Time</label>
+
+  <input type="checkbox" id="time-off-selectable" value="agentTimeOffSelectable">
+  <label for="time-off-selectable">Agent Time Off Selectable</label>
+
+  <input type="checkbox" id="shrinkage" value="countsTowardShrinkage">
+  <label for="shrinkage">Counts Toward Shrinkage</label>
+
+  <input type="checkbox" id="planned-shrinkage" value="plannedShrinkage">
+  <label for="planned-shrinkage">Planned Shrinkage</label>
+
+  <input type="checkbox" id="interruptible" value="interruptible">
+  <label for="interruptible">Interruptible</label>
+
+  <label for="business-units">Business Units:</label>
+  <select id="business-units" multiple>
+    <!-- Options will be populated dynamically via JavaScript -->
+  </select>
+
+  <button onclick="createActivityCode()">Create Activity Code</button>
+
+  <div id="results">
+    <!-- Results will be displayed here -->
+  </div>
+
+  <script>
+    // Function to fetch and populate business units dropdown
+    async function fetchBusinessUnits() {
+      const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits';
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Authorization': 'Bearer YOUR_ACCESS_TOKEN_HERE'
+        }
+      });
+      const data = await response.json();
+      const businessUnitsSelect = document.getElementById('business-units');
+      data.forEach(unit => {
+        const option = document.createElement('option');
+        option.value = unit.id;
+        option.textContent = unit.name;
+        businessUnitsSelect.appendChild(option);
+      });
+    }
+
+    // Function to create activity code
+    async function createActivityCode() {
+      const name = document.getElementById('activity-name').value;
+      const category = document.getElementById('category').value;
+      const lengthInMinutes = parseInt(document.getElementById('length').value, 10) || null;
+      const countsAsPaidTime = document.getElementById('paid-time').checked;
+      const countsAsWorkTime = document.getElementById('work-time').checked;
+      const agentTimeOffSelectable = document.getElementById('time-off-selectable').checked;
+      const countsTowardShrinkage = document.getElementById('shrinkage').checked;
+      const plannedShrinkage = document.getElementById('planned-shrinkage').checked;
+      const interruptible = document.getElementById('interruptible').checked;
+      const businessUnits = Array.from(document.getElementById('business-units').selectedOptions).map(option => option.value);
+
+      const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/{businessUnitId}/activitycodes`;
+
+      // Make API call to create activity code
+      try {
+        const response = await fetch(createUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer YOUR_ACCESS_TOKEN_HERE',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name,
+            category,
+            lengthInMinutes,
+            countsAsPaidTime,
+            countsAsWorkTime,
+            agentTimeOffSelectable,
+            countsTowardShrinkage,
+            plannedShrinkage,
+            interruptible,
+            businessUnits
+          })
+        });
+        const data = await response.json();
+        // Handle success or show error
+        console.log('Activity code created:', data);
+        document.getElementById('results').innerHTML = `<p>Activity code created successfully.</p>`;
+      } catch (error) {
+        console.error('Error creating activity code:', error);
+        document.getElementById('results').innerHTML = `<p>Error creating activity code: ${error.message}</p>`;
+      }
+    }
+
+    // Fetch business units on page load
+    fetchBusinessUnits();
+  </script>
+</body>
+</html>
