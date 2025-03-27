@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <title>Activity Code Management</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Proxima+Nova&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Proxima Nova', Arial, sans-serif;
       margin: 20px;
       padding: 20px;
       background-color: #f5f5f5;
@@ -23,6 +24,8 @@
       padding: 20px;
       border-radius: 5px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      max-width: 800px;
+      margin: 0 auto;
     }
     label {
       display: block;
@@ -30,25 +33,28 @@
       font-weight: bold;
     }
     select, input, button {
-      padding: 8px;
+      padding: 10px;
       width: 100%;
       max-width: 400px;
       margin-bottom: 15px;
       border: 1px solid #ddd;
       border-radius: 4px;
+      font-size: 16px;
     }
     select[multiple] {
-      height: 120px;
+      height: 150px;
     }
     button {
-      background-color: #4CAF50;
+      background-color: #007bff;
       color: white;
       border: none;
       cursor: pointer;
-      padding: 10px 15px;
+      padding: 12px 20px;
+      font-size: 16px;
+      transition: background-color 0.3s;
     }
     button:hover {
-      background-color: #45a049;
+      background-color: #0056b3;
     }
     button:disabled {
       background-color: #cccccc;
@@ -57,7 +63,7 @@
     .checkbox-container {
       display: flex;
       align-items: center;
-      margin: 5px 0;
+      margin: 8px 0;
     }
     .checkbox-container input {
       width: auto;
@@ -65,99 +71,279 @@
     }
     #results {
       margin: 20px 0;
-      padding: 10px;
+      padding: 15px;
       border-radius: 4px;
     }
     .error {
-      color: #d32f2f;
-      background-color: #fce4ec;
-      border: 1px solid #f8bbd0;
+      color: #dc3545;
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
     }
     .success {
-      color: #388e3c;
-      background-color: #e8f5e9;
-      border: 1px solid #c8e6c9;
+      color: #28a745;
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+    }
+    .loading {
+      color: #6c757d;
+      font-style: italic;
+    }
+    .section {
+      margin-bottom: 25px;
+      padding-bottom: 25px;
+      border-bottom: 1px solid #eee;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div id="logo-container">
-      <img id="logo" src="https://via.placeholder.com/300x100?text=Company+Logo" alt="Company Logo">
+      <img id="logo" src="https://raw.githubusercontent.com/gmcglynn88/Management-Unit-Search/main/Consultinglogo%20(2).png" alt="Company Logo">
     </div>
 
     <h1>Manage Business Units and Activity Codes</h1>
 
-    <label for="business-units">Select Business Units:</label>
-    <select id="business-units" multiple>
-      <option value="unit1">Business Unit 1</option>
-      <option value="unit2">Business Unit 2</option>
-      <option value="unit3">Business Unit 3</option>
-    </select>
-
-    <h2>Create Activity Code</h2>
-
-    <label for="activity-name">Activity Name:</label>
-    <input type="text" id="activity-name" placeholder="Enter activity name" required>
-
-    <label for="category">Category:</label>
-    <select id="category" required>
-      <option value="">Select category</option>
-      <option value="OnQueueWork">OnQueueWork</option>
-      <option value="Break">Break</option>
-      <option value="Meeting">Meeting</option>
-    </select>
-
-    <label for="length">Default Length (minutes):</label>
-    <input type="number" id="length" placeholder="Enter default length">
-
-    <label>Options:</label>
-    <div class="checkbox-container">
-      <input type="checkbox" id="paid-time">
-      <label for="paid-time">Counts as Paid Time</label>
-    </div>
-    <div class="checkbox-container">
-      <input type="checkbox" id="work-time">
-      <label for="work-time">Counts as Work Time</label>
+    <div class="section">
+      <label for="business-units">Select Business Units:</label>
+      <select id="business-units" multiple>
+        <option value="" disabled>Loading business units...</option>
+      </select>
     </div>
 
-    <button id="create-button">Create Activity Code</button>
+    <div class="section">
+      <h2>Create Activity Code</h2>
+
+      <label for="activity-name">Activity Name:</label>
+      <input type="text" id="activity-name" placeholder="Enter activity name" required>
+
+      <label for="category">Category:</label>
+      <select id="category" required>
+        <option value="">Select category</option>
+        <option value="OnQueueWork">OnQueueWork</option>
+        <option value="Break">Break</option>
+        <option value="Meal">Meal</option>
+        <option value="Meeting">Meeting</option>
+        <option value="OffQueueWork">OffQueueWork</option>
+        <option value="TimeOff">TimeOff</option>
+        <option value="Training">Training</option>
+        <option value="Unavailable">Unavailable</option>
+        <option value="Unscheduled">Unscheduled</option>
+      </select>
+
+      <label for="length">Default Length (minutes):</label>
+      <input type="number" id="length" placeholder="Enter default length">
+
+      <label>Options:</label>
+      <div class="checkbox-container">
+        <input type="checkbox" id="paid-time">
+        <label for="paid-time">Counts as Paid Time</label>
+      </div>
+      <div class="checkbox-container">
+        <input type="checkbox" id="work-time">
+        <label for="work-time">Counts as Work Time</label>
+      </div>
+      <div class="checkbox-container">
+        <input type="checkbox" id="time-off-selectable">
+        <label for="time-off-selectable">Agent Time Off Selectable</label>
+      </div>
+      <div class="checkbox-container">
+        <input type="checkbox" id="shrinkage">
+        <label for="shrinkage">Counts Toward Shrinkage</label>
+      </div>
+      <div class="checkbox-container">
+        <input type="checkbox" id="planned-shrinkage">
+        <label for="planned-shrinkage">Planned Shrinkage</label>
+      </div>
+      <div class="checkbox-container">
+        <input type="checkbox" id="interruptible">
+        <label for="interruptible">Interruptible</label>
+      </div>
+    </div>
+
+    <button id="create-button" disabled>Create Activity Code</button>
 
     <div id="results">
-      <!-- Results will appear here -->
+      <p class="loading">Initializing application...</p>
     </div>
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      const createButton = document.getElementById('create-button');
-      const resultsDiv = document.getElementById('results');
-      
-      // Simple mock function for demonstration
-      async function createActivityCode() {
-        const name = document.getElementById('activity-name').value;
-        const category = document.getElementById('category').value;
-        
-        if (!name || !category) {
-          showResult('Please fill in all required fields', 'error');
-          return;
+    // Configuration
+    const API_BASE_URL = 'https://api.mypurecloud.ie';
+    const CLIENT_ID = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
+    const CLIENT_SECRET = 'G0qSDsjAtCutt5W-297Yqrwz9n4q3g3YdwpfnbchGcQ';
+
+    // DOM Elements
+    const resultsDiv = document.getElementById('results');
+    const businessUnitsSelect = document.getElementById('business-units');
+    const createButton = document.getElementById('create-button');
+
+    // Utility functions
+    function showMessage(message, type = 'info') {
+      resultsDiv.innerHTML = `<p class="${type}">${message}</p>`;
+    }
+
+    function showError(error) {
+      console.error(error);
+      showMessage(`Error: ${error.message || error}`, 'error');
+    }
+
+    // API Functions
+    async function getAccessToken() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/oauth/token`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            grant_type: 'client_credentials',
+            client_id: CLIENT_ID,
+            client_secret: CLIENT_SECRET
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Authentication failed');
         }
-        
+
+        const data = await response.json();
+        return data.access_token;
+      } catch (error) {
+        showError(error);
+        return null;
+      }
+    }
+
+    async function fetchBusinessUnits() {
+      try {
+        showMessage('Loading business units...', 'loading');
         createButton.disabled = true;
-        showResult('Creating activity code...');
-        
-        // Simulate API call
-        setTimeout(() => {
-          showResult(`Successfully created activity code "${name}" in category "${category}"`, 'success');
+
+        const token = await getAccessToken();
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/v2/workforcemanagement/businessunits?pageSize=100`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to load business units');
+        }
+
+        const data = await response.json();
+        businessUnitsSelect.innerHTML = '';
+
+        if (data.entities && data.entities.length > 0) {
+          data.entities.forEach(unit => {
+            if (unit.name) {
+              const option = document.createElement('option');
+              option.value = unit.id;
+              option.textContent = unit.name;
+              businessUnitsSelect.appendChild(option);
+            }
+          });
+          showMessage('Business units loaded successfully', 'success');
           createButton.disabled = false;
-        }, 1500);
+        } else {
+          throw new Error('No business units found');
+        }
+      } catch (error) {
+        showError(error);
+        businessUnitsSelect.innerHTML = '<option value="" disabled>Failed to load business units</option>';
       }
-      
-      function showResult(message, type = '') {
-        resultsDiv.innerHTML = `<p class="${type}">${message}</p>`;
+    }
+
+    async function createActivityCode() {
+      try {
+        // Validate inputs
+        const name = document.getElementById('activity-name').value.trim();
+        const category = document.getElementById('category').value;
+        const selectedUnits = Array.from(businessUnitsSelect.selectedOptions).map(opt => opt.value);
+
+        if (!name) throw new Error('Activity name is required');
+        if (!category) throw new Error('Category is required');
+        if (selectedUnits.length === 0) throw new Error('Select at least one business unit');
+
+        // Prepare data
+        const activityData = {
+          name,
+          category,
+          lengthInMinutes: parseInt(document.getElementById('length').value) || null,
+          countsAsPaidTime: document.getElementById('paid-time').checked,
+          countsAsWorkTime: document.getElementById('work-time').checked,
+          agentTimeOffSelectable: document.getElementById('time-off-selectable').checked,
+          countsTowardShrinkage: document.getElementById('shrinkage').checked,
+          plannedShrinkage: document.getElementById('planned-shrinkage').checked,
+          interruptible: document.getElementById('interruptible').checked
+        };
+
+        showMessage('Creating activity code...', 'loading');
+        createButton.disabled = true;
+
+        const token = await getAccessToken();
+        if (!token) return;
+
+        // Create in each selected business unit
+        const results = [];
+        for (const unitId of selectedUnits) {
+          try {
+            const response = await fetch(
+              `${API_BASE_URL}/api/v2/workforcemanagement/businessunits/${unitId}/activitycodes`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(activityData)
+              }
+            );
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.message || 'API request failed');
+            }
+
+            const data = await response.json();
+            results.push({ success: true, unitId, data });
+          } catch (error) {
+            results.push({ success: false, unitId, error: error.message });
+          }
+        }
+
+        // Show results
+        const successCount = results.filter(r => r.success).length;
+        const errorCount = results.filter(r => !r.success).length;
+
+        if (errorCount === 0) {
+          showMessage(`Successfully created activity code in ${successCount} business units`, 'success');
+        } else {
+          const errorList = results.filter(r => !r.success)
+            .map(r => `• ${businessUnitsSelect.querySelector(`option[value="${r.unitId}"]`).textContent}: ${r.error}`)
+            .join('<br>');
+          
+          showMessage(
+            `Created in ${successCount} business units, failed in ${errorCount}:<br>${errorList}`,
+            errorCount === selectedUnits.length ? 'error' : 'success'
+          );
+        }
+      } catch (error) {
+        showError(error);
+      } finally {
+        createButton.disabled = false;
       }
-      
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
       createButton.addEventListener('click', createActivityCode);
+      fetchBusinessUnits();
     });
   </script>
 </body>
