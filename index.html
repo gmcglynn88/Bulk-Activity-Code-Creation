@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>Activity Code Management</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Include the Proxima Nova font -->
   <link href="https://fonts.googleapis.com/css2?family=Proxima+Nova&display=swap" rel="stylesheet">
   <style>
     body {
@@ -12,84 +11,59 @@
       margin: 20px;
       padding: 20px;
     }
-    /* Center the logo at the top */
     #logo-container {
       text-align: center;
       margin-bottom: 20px;
     }
     #logo {
-      width: 300px; /* Adjust as needed */
+      width: 300px;
     }
-
     h1 {
-      font-size: 24px; /* Match the font size of the second script */
+      font-size: 24px;
     }
-
     label, select, input, button {
       display: block;
       margin: 10px 0;
     }
-
-    /* Specific styling for labels */
     label {
-      font-weight: bold; /* Make all labels bold */
+      font-weight: bold;
     }
-
-    /* Increase size of input boxes and dropdowns */
     select, input, button {
       margin-top: 10px;
-      padding: 12px;  /* Increased padding for larger size */
+      padding: 12px;
       width: 100%;
-      max-width: 400px;  /* Adjust max-width for larger fields */
-      font-size: 16px;   /* Increased font size */
-      box-sizing: border-box; /* Include padding in width calculation */
+      max-width: 400px;
+      font-size: 16px;
+      box-sizing: border-box;
     }
-
-    /* Style for the results */
     #results {
       margin-top: 20px;
     }
-
-    /* Non-bold result text */
     #results p {
       font-weight: normal;
     }
-
-    /* Align checkboxes with labels */
     .checkbox-container {
       display: flex;
       align-items: center;
-      margin: 5px 0; /* Reduced margin for neatness */
+      margin: 5px 0;
       width: 100%;
       max-width: 400px;
-      flex-wrap: nowrap; /* Prevents wrapping of text */
+      flex-wrap: nowrap;
     }
-
     .checkbox-container label {
-      flex-grow: 1; /* Ensures the label stays aligned properly */
-      white-space: nowrap; /* Prevents the text from wrapping */
-      font-weight: normal; /* Make checkbox labels normal weight */
+      flex-grow: 1;
+      white-space: nowrap;
+      font-weight: normal;
       margin: 0;
     }
-
     .checkbox-container input[type="checkbox"] {
-      margin-right: 10px;  /* Space between checkbox and label */
-      width: auto; /* Prevent checkbox from stretching */
+      margin-right: 10px;
+      width: auto;
     }
-
-    /* Ensure consistent width for inputs */
-    .input-container, .checkbox-container {
-      width: 100%;
-      max-width: 400px;
-    }
-    
-    /* Style for multiple select */
     select[multiple] {
       height: auto;
       min-height: 120px;
     }
-    
-    /* Style for buttons */
     button {
       background-color: #007bff;
       color: white;
@@ -98,19 +72,27 @@
       cursor: pointer;
       transition: background-color 0.3s;
     }
-    
     button:hover {
       background-color: #0056b3;
     }
-    
-    /* Error message styling */
     .error {
       color: #dc3545;
     }
-    
-    /* Success message styling */
     .success {
       color: #28a745;
+    }
+    #auth-message {
+      margin: 20px 0;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .auth-loading {
+      background-color: #fff3cd;
+      color: #856404;
+    }
+    .auth-error {
+      background-color: #f8d7da;
+      color: #721c24;
     }
   </style>
 </head>
@@ -126,9 +108,11 @@
 
   <h1>Manage Business Units and Activity Codes</h1>
 
+  <div id="auth-message" class="auth-loading">Authenticating with PureCloud...</div>
+
   <!-- Business Units Dropdown -->
   <label for="business-units">Select Business Units:</label>
-  <select id="business-units" multiple>
+  <select id="business-units" multiple disabled>
     <!-- Options will be populated dynamically via JavaScript -->
   </select>
 
@@ -138,10 +122,10 @@
   <h2>Create Activity Code</h2>
 
   <label for="activity-name">Activity Name:</label>
-  <input type="text" id="activity-name" placeholder="Enter activity name" required>
+  <input type="text" id="activity-name" placeholder="Enter activity name" required disabled>
 
   <label for="category">Category:</label>
-  <select id="category" required>
+  <select id="category" required disabled>
     <option value="">Select category</option>
     <option value="OnQueueWork">OnQueueWork</option>
     <option value="Break">Break</option>
@@ -155,90 +139,102 @@
   </select>
 
   <label for="length">Default Length (minutes):</label>
-  <input type="number" id="length" placeholder="Enter default length">
+  <input type="number" id="length" placeholder="Enter default length" disabled>
 
   <label>Options:</label>
 
-  <!-- Aligning Checkboxes with Labels -->
   <div class="checkbox-container">
-    <input type="checkbox" id="paid-time" value="countsAsPaidTime">
+    <input type="checkbox" id="paid-time" value="countsAsPaidTime" disabled>
     <label for="paid-time">Counts as Paid Time</label>
   </div>
 
   <div class="checkbox-container">
-    <input type="checkbox" id="work-time" value="countsAsWorkTime">
+    <input type="checkbox" id="work-time" value="countsAsWorkTime" disabled>
     <label for="work-time">Counts as Work Time</label>
   </div>
 
   <div class="checkbox-container">
-    <input type="checkbox" id="time-off-selectable" value="agentTimeOffSelectable">
+    <input type="checkbox" id="time-off-selectable" value="agentTimeOffSelectable" disabled>
     <label for="time-off-selectable">Agent Time Off Selectable</label>
   </div>
 
   <div class="checkbox-container">
-    <input type="checkbox" id="shrinkage" value="countsTowardShrinkage">
+    <input type="checkbox" id="shrinkage" value="countsTowardShrinkage" disabled>
     <label for="shrinkage">Counts Toward Shrinkage</label>
   </div>
 
   <div class="checkbox-container">
-    <input type="checkbox" id="planned-shrinkage" value="plannedShrinkage">
+    <input type="checkbox" id="planned-shrinkage" value="plannedShrinkage" disabled>
     <label for="planned-shrinkage">Planned Shrinkage</label>
   </div>
 
   <div class="checkbox-container">
-    <input type="checkbox" id="interruptible" value="interruptible">
+    <input type="checkbox" id="interruptible" value="interruptible" disabled>
     <label for="interruptible">Interruptible</label>
   </div>
 
-  <button onclick="createActivityCode()">Create Activity Code for Selected Business Units</button>
+  <button id="create-button" onclick="createActivityCode()" disabled>Create Activity Code for Selected Business Units</button>
 
   <div id="results">
     <!-- Results will be displayed here -->
   </div>
 
   <script>
-    // Function to fetch access token using Client ID and Client Secret
-    async function getAccessToken() {
-      const clientId = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
-      const clientSecret = 'G0qSDsjAtCutt5W-297Yqrwz9n4q3g3YdwpfnbchGcQ';
-      
-      const url = 'https://api.mypurecloud.ie/oauth/token';
-      
-      const body = new URLSearchParams();
-      body.append('grant_type', 'client_credentials');
-      body.append('client_id', clientId);
-      body.append('client_secret', clientSecret);
-      
-      try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: body.toString(),
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          return data.access_token;
-        } else {
-          console.error('Error fetching access token:', data);
-          throw new Error(data.error_description || 'Error fetching access token');
-        }
-      } catch (error) {
-        console.error('Network error fetching access token:', error);
-        throw new Error('Network error while fetching access token');
+    // OAuth Configuration
+    const clientId = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
+    const redirectUri = window.location.href.split('?')[0]; // Current page URL
+    const responseType = 'token';
+    const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=${responseType}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+    // Global token variable
+    let accessToken = null;
+
+    // Handle page load and authentication
+    document.addEventListener('DOMContentLoaded', () => {
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      accessToken = params.get('access_token');
+
+      if (accessToken) {
+        // Store token in sessionStorage for page refreshes
+        sessionStorage.setItem('purecloud_token', accessToken);
+        initializeApplication();
+      } else if (sessionStorage.getItem('purecloud_token')) {
+        // Use stored token if available
+        accessToken = sessionStorage.getItem('purecloud_token');
+        initializeApplication();
+      } else {
+        // Redirect to OAuth login
+        window.location.href = oauthUrl;
       }
+    });
+
+    function initializeApplication() {
+      document.getElementById('auth-message').textContent = 'Authenticated successfully!';
+      document.getElementById('auth-message').style.display = 'none';
+
+      // Enable all form elements
+      document.getElementById('business-units').disabled = false;
+      document.getElementById('activity-name').disabled = false;
+      document.getElementById('category').disabled = false;
+      document.getElementById('length').disabled = false;
+      document.getElementById('paid-time').disabled = false;
+      document.getElementById('work-time').disabled = false;
+      document.getElementById('time-off-selectable').disabled = false;
+      document.getElementById('shrinkage').disabled = false;
+      document.getElementById('planned-shrinkage').disabled = false;
+      document.getElementById('interruptible').disabled = false;
+      document.getElementById('create-button').disabled = false;
+
+      // Fetch business units
+      fetchBusinessUnits();
     }
 
     // Function to fetch all business units (with pagination support)
     async function fetchBusinessUnits() {
       try {
-        const accessToken = await getAccessToken(); // Obtain access token
-
         const apiUrl = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits?pageSize=100';
-        
+
         let businessUnits = [];
         let nextPageUrl = apiUrl;
 
@@ -257,7 +253,7 @@
           if (response.ok) {
             // Concatenate current page of business units
             businessUnits = businessUnits.concat(data.entities);
-            
+
             // Get the next page URL (if available)
             nextPageUrl = data.pageCount > data.pageNumber ? `${apiUrl}&pageNumber=${data.pageNumber + 1}` : null;
           } else {
@@ -285,27 +281,27 @@
       // Clear previous results
       const resultsDiv = document.getElementById('results');
       resultsDiv.innerHTML = '';
-      
+
       // Validate form inputs
       const name = document.getElementById('activity-name').value.trim();
       const category = document.getElementById('category').value;
       const businessUnits = Array.from(document.getElementById('business-units').selectedOptions).map(option => option.value);
-      
+
       if (!name) {
         resultsDiv.innerHTML = '<p class="error">Please enter an activity name</p>';
         return;
       }
-      
+
       if (!category) {
         resultsDiv.innerHTML = '<p class="error">Please select a category</p>';
         return;
       }
-      
+
       if (businessUnits.length === 0) {
         resultsDiv.innerHTML = '<p class="error">Please select at least one business unit</p>';
         return;
       }
-      
+
       const lengthInMinutes = parseInt(document.getElementById('length').value, 10) || null;
       const countsAsPaidTime = document.getElementById('paid-time').checked;
       const countsAsWorkTime = document.getElementById('work-time').checked;
@@ -315,16 +311,14 @@
       const interruptible = document.getElementById('interruptible').checked;
 
       try {
-        const accessToken = await getAccessToken(); // Get access token for API authentication
-        
         // Create activity code in each selected business unit
         let successCount = 0;
         let errorCount = 0;
         let errorMessages = [];
-        
+
         for (const businessUnitId of businessUnits) {
           const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`;
-          
+
           try {
             const response = await fetch(createUrl, {
               method: 'POST',
@@ -344,9 +338,9 @@
                 interruptible
               }),
             });
-            
+
             const data = await response.json();
-            
+
             if (response.ok) {
               console.log(`Activity code created in ${businessUnitId}:`, data);
               successCount++;
@@ -361,7 +355,7 @@
             errorMessages.push(`Business Unit ${businessUnitId}: ${error.message}`);
           }
         }
-        
+
         // Display results
         if (errorCount === 0) {
           resultsDiv.innerHTML = `<p class="success">Activity code created successfully in all ${successCount} business units.</p>`;
@@ -378,9 +372,6 @@
         resultsDiv.innerHTML = `<p class="error">Error creating activity code: ${error.message}</p>`;
       }
     }
-
-    // Fetch business units on page load
-    document.addEventListener('DOMContentLoaded', fetchBusinessUnits);
   </script>
 </body>
 </html>
