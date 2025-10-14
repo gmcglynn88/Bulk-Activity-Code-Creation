@@ -68,7 +68,7 @@
         <div>
           <label>Business Units</label>
           <div id="businessUnitsDD" class="checkbox-dropdown"></div>
-          <div class="muted">Search, tick, or use “Select all”.</div>
+          <div class="muted">Search, tick, or use "Select all".</div>
         </div>
       </div>
     </div>
@@ -123,19 +123,19 @@
 
   <script>
     // ===== OAuth Config =====
-    // IMPORTANT: use the client that has your Bulk-Activity redirect URI whitelisted
-    const clientId = 'd4529142-7340-4cd8-a9f9-f3a4d25670df'; // <-- ensure this client has the redirect below allowed
-
-    // Build a redirectUri that exactly matches how the page is loaded.
-    // Normalise ".../index.html" to ".../" to avoid mismatch.
-    (function(){
-      const { origin, pathname } = window.location;
-      const normalisedPath = pathname.replace(/index\.html?$/i, '');
-      window.__REDIRECT_URI__ = origin + normalisedPath; // e.g. https://gmcglynn88.github.io/Bulk-Activity-Code-Creation/
-    })();
-
-    const redirectUri = window.__REDIRECT_URI__;
+    const clientId = 'd4529142-7340-4cd8-a9f9-f3a4d25670df';
+    
+    // Use the EXACT URI that's registered in Genesys Cloud
+    const redirectUri = 'https://gmcglynn88.github.io/Bulk-Activity-Code-Creation/';
+    
     const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+    // Debug logging
+    console.log('OAuth Configuration:');
+    console.log('- Client ID:', clientId);
+    console.log('- Redirect URI:', redirectUri);
+    console.log('- Encoded Redirect URI:', encodeURIComponent(redirectUri));
+    console.log('- Full OAuth URL:', oauthUrl);
 
     let accessToken = null;
     let buDropdown = null;
@@ -234,7 +234,7 @@
 
     // ===== Auth bootstrap =====
     document.addEventListener('DOMContentLoaded', () => {
-      // Parse OAuth error from the URL (Genesys can send it in hash or query)
+      // Parse OAuth error from the URL
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
       const qparams = new URLSearchParams(window.location.search);
@@ -244,19 +244,23 @@
 
       if (oauthError) {
         document.getElementById('auth-message').textContent = `OAuth error: ${oauthErrorDesc || oauthError}`;
-        console.warn('OAuth error:', oauthError, oauthErrorDesc);
+        document.getElementById('auth-message').className = 'error-message';
+        console.error('OAuth error details:', { error: oauthError, description: oauthErrorDesc });
+        return;
       }
 
       accessToken = params.get('access_token');
 
       if (accessToken) {
         sessionStorage.setItem('purecloud_token', accessToken);
+        // Clean URL after successful auth
+        window.location.hash = '';
         initializeApplication();
       } else if (sessionStorage.getItem('purecloud_token')) {
         accessToken = sessionStorage.getItem('purecloud_token');
         initializeApplication();
       } else {
-        console.log('Redirecting to OAuth with redirectUri:', redirectUri, 'and clientId:', clientId);
+        console.log('Initiating OAuth flow with:', { clientId, redirectUri });
         window.location.href = oauthUrl;
       }
     });
