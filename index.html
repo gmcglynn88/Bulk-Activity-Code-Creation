@@ -26,13 +26,11 @@
     .muted{color:var(--text-light);font-size:12px}
     .section-title{margin:0 0 10px;color:var(--secondary-color)}
 
-    /* Messages */
     #messageContainer{display:none;margin-top:12px}
     .error-message{color:#b4231a;background:#fee2e2;border:1px solid #fecaca;padding:10px;border-radius:6px}
     .success-message{color:#14532d;background:#dcfce7;border:1px solid #bbf7d0;padding:10px;border-radius:6px}
     .info-message{color:#6b4e16;background:#fff7ed;border:1px solid #ffedd5;padding:10px;border-radius:6px}
 
-    /* Checkbox dropdown */
     .checkbox-dropdown{position:relative;min-width:260px}
     .cd-trigger{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border-color);border-radius:6px;background:#fff;padding:10px;cursor:pointer}
     .cd-trigger .label{color:var(--text-color)}
@@ -57,12 +55,10 @@
 
   <h1>Activity Code Management</h1>
 
-  <!-- Auth status -->
   <div id="authCard" class="card">
     <div id="auth-message" class="info-message">Authenticating with PureCloud...</div>
   </div>
 
-  <!-- App -->
   <div id="appContent" style="display:none;">
     <div id="messageContainer"></div>
 
@@ -127,10 +123,19 @@
 
   <script>
     // ===== OAuth Config =====
-    const clientId = 'd4529142-7340-4cd8-a9f9-f3a4d25670df';
-    // Set to your GitHub Pages app URL (must match OAuth app allowed redirect URI)
-    const redirectUri = 'https://gmcglynn88.github.io/Bulk-Activity-Code-Creation/';
-    const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    // IMPORTANT: use the client that has your Bulk-Activity redirect URI whitelisted
+    const clientId = 'd4529142-7340-4cd8-a9f9-f3a4d25670df'; // <-- ensure this client has the redirect below allowed
+
+    // Build a redirectUri that exactly matches how the page is loaded.
+    // Normalise ".../index.html" to ".../" to avoid mismatch.
+    (function(){
+      const { origin, pathname } = window.location;
+      const normalisedPath = pathname.replace(/index\.html?$/i, '');
+      window.__REDIRECT_URI__ = origin + normalisedPath; // e.g. https://gmcglynn88.github.io/Bulk-Activity-Code-Creation/
+    })();
+
+    const redirectUri = window.__REDIRECT_URI__;
+    const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
     let accessToken = null;
     let buDropdown = null;
@@ -229,8 +234,19 @@
 
     // ===== Auth bootstrap =====
     document.addEventListener('DOMContentLoaded', () => {
+      // Parse OAuth error from the URL (Genesys can send it in hash or query)
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
+      const qparams = new URLSearchParams(window.location.search);
+
+      const oauthError = params.get('error') || qparams.get('error');
+      const oauthErrorDesc = params.get('error_description') || qparams.get('error_description');
+
+      if (oauthError) {
+        document.getElementById('auth-message').textContent = `OAuth error: ${oauthErrorDesc || oauthError}`;
+        console.warn('OAuth error:', oauthError, oauthErrorDesc);
+      }
+
       accessToken = params.get('access_token');
 
       if (accessToken) {
@@ -240,6 +256,7 @@
         accessToken = sessionStorage.getItem('purecloud_token');
         initializeApplication();
       } else {
+        console.log('Redirecting to OAuth with redirectUri:', redirectUri, 'and clientId:', clientId);
         window.location.href = oauthUrl;
       }
     });
