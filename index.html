@@ -32,7 +32,7 @@
     .success-message{color:#14532d;background:#dcfce7;border:1px solid #bbf7d0;padding:10px;border-radius:6px}
     .info-message{color:#6b4e16;background:#fff7ed;border:1px solid #ffedd5;padding:10px;border-radius:6px}
 
-    /* Checkbox dropdown (reused from skills app) */
+    /* Checkbox dropdown */
     .checkbox-dropdown{position:relative;min-width:260px}
     .cd-trigger{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--border-color);border-radius:6px;background:#fff;padding:10px;cursor:pointer}
     .cd-trigger .label{color:var(--text-color)}
@@ -62,11 +62,10 @@
     <div id="auth-message" class="info-message">Authenticating with PureCloud...</div>
   </div>
 
-  <!-- Controls -->
+  <!-- App -->
   <div id="appContent" style="display:none;">
     <div id="messageContainer"></div>
 
-    <!-- Selection -->
     <div class="card">
       <h2 class="section-title">Select Business Units</h2>
       <div class="controls">
@@ -78,7 +77,6 @@
       </div>
     </div>
 
-    <!-- Form -->
     <div class="card">
       <h2 class="section-title">Create Activity Code</h2>
       <div class="controls">
@@ -124,17 +122,18 @@
       <button id="create-button" class="full-width-btn">Create Activity Code for Selected Business Units</button>
     </div>
 
-    <!-- Results -->
     <div id="results" class="card" style="display:none;"></div>
   </div>
 
   <script>
     // ===== OAuth Config =====
-    const clientId = 'f93a488c-73e9-40cf-b4fd-5c05ff043c81';
-    const redirectUri = window.location.href.split('?')[0];
+    const clientId = 'd4529142-7340-4cd8-a9f9-f3a4d25670df';
+    // Set to your GitHub Pages app URL (must match OAuth app allowed redirect URI)
+    const redirectUri = 'https://gmcglynn88.github.io/Bulk-Activity-Code-Creation/';
     const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
     let accessToken = null;
+    let buDropdown = null;
 
     // ===== Checkbox Dropdown (generic) =====
     function createCheckboxDropdown(containerId, { placeholder='Select items', searchPlaceholder='Search...' } = {}){
@@ -228,9 +227,6 @@
       return { setOptions, getSelectedValues };
     }
 
-    // Instance for Business Units
-    let buDropdown = null;
-
     // ===== Auth bootstrap =====
     document.addEventListener('DOMContentLoaded', () => {
       const hash = window.location.hash.substring(1);
@@ -261,7 +257,6 @@
       document.getElementById('appContent').style.display = 'block';
 
       buDropdown = createCheckboxDropdown('businessUnitsDD', { placeholder:'Select business units', searchPlaceholder:'Search business units...' });
-
       fetchBusinessUnits();
       document.getElementById('create-button').addEventListener('click', createActivityCode);
     }
