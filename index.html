@@ -60,12 +60,11 @@
     /* Disabled option styling */
     .disabled-option { opacity: 0.6; cursor: not-allowed; }
     .disabled-option input[type="checkbox"] { cursor: not-allowed; }
-    .option-disabled { opacity: 0.5; pointer-events: none; }
     
     /* Loading spinner */
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: var(--primary-color); animation: spin 1s ease-in-out infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading { display: flex; align-items: center; gap: 8px; padding: 10px; }
+    .loading { display: flex; align-items: center; gap: 8px; padding: 10px; color: var(--text-light); }
   </style>
 </head>
 <body>
@@ -153,169 +152,171 @@
   <script>
     // ===== OAuth Config =====
     const clientId = 'fe305808-b368-4547-8af9-325d28d552bb';
-    
-    // Use the EXACT URI that's registered in Genesys Cloud
     const redirectUri = 'https://gmcglynn88.github.io/Bulk-Activity-Code-Creation/';
-    
     const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
     let accessToken = null;
     let buDropdown = null;
     let businessUnitsData = [];
-    let buWorkHandlingDropdowns = new Map();
+    let planningGroupsData = new Map(); // Map to store planning groups for each BU: businessUnitId -> {dropdown, selectedValues}
 
-    // ===== Checkbox Dropdown (generic) =====
-    function createCheckboxDropdown(containerId, { placeholder='Select items', searchPlaceholder='Search...', onSelectionChange=null } = {}){
-      const root = document.getElementById(containerId);
-      if (!root) {
-        console.error(`Container ${containerId} not found`);
-        return null;
-      }
-      root.innerHTML = '';
-
+    // ===== SIMPLE Checkbox Dropdown =====
+    function createSimpleCheckboxDropdown(containerId, placeholder = 'Select items') {
+      const container = document.getElementById(containerId);
+      if (!container) return null;
+      
+      // Clear container
+      container.innerHTML = '';
+      
+      // Create trigger
       const trigger = document.createElement('div');
       trigger.className = 'cd-trigger';
       trigger.innerHTML = `<span class="label">${placeholder}</span><span class="count">0 selected</span>`;
-      root.appendChild(trigger);
-
+      container.appendChild(trigger);
+      
+      // Create panel
       const panel = document.createElement('div');
       panel.className = 'cd-panel';
       panel.innerHTML = `
         <div class="cd-header">
-          <input type="text" class="cd-search" placeholder="${searchPlaceholder}" />
-          <div class="cd-actions">
-            <button type="button" data-cd="clear">Clear</button>
-          </div>
+          <input type="text" class="cd-search" placeholder="Search..." />
         </div>
         <div class="cd-selectall">
-          <label><input type="checkbox" data-cd="selectall" /> Select all</label>
+          <label><input type="checkbox" class="select-all"> Select all</label>
         </div>
         <div class="cd-list"></div>
         <div class="cd-footer">
-          <span data-cd="summary">0 selected</span>
+          <span class="summary">0 selected</span>
           <span>Click outside to close</span>
         </div>
       `;
-      root.appendChild(panel);
-
-      const list = panel.querySelector('.cd-list');
-      const search = panel.querySelector('.cd-search');
-      const clearBtn = panel.querySelector('[data-cd="clear"]');
-      const selectAll = panel.querySelector('[data-cd="selectall"]');
-      const summary = panel.querySelector('[data-cd="summary"]');
-
+      container.appendChild(panel);
+      
+      const searchInput = panel.querySelector('.cd-search');
+      const selectAllCheckbox = panel.querySelector('.select-all');
+      const listContainer = panel.querySelector('.cd-list');
+      const summary = panel.querySelector('.summary');
+      
       let options = [];
       let selected = new Set();
-
-      function render(filter=''){
-        const ft = filter.trim().toLowerCase();
-        list.innerHTML = '';
-        const filtered = !ft ? options : options.filter(o => (o.label||'').toLowerCase().includes(ft));
-        if (!filtered.length){ 
-          list.innerHTML = `<div class="cd-item" style="color:#6C757D">No matches</div>`; 
-          return; 
+      
+      function renderList(filterText = '') {
+        listContainer.innerHTML = '';
+        const filtered = filterText ? 
+          options.filter(opt => opt.label.toLowerCase().includes(filterText.toLowerCase())) : 
+          options;
+        
+        if (filtered.length === 0) {
+          listContainer.innerHTML = '<div class="cd-item" style="color:#6C757D">No items found</div>';
+          return;
         }
-        filtered.forEach(o=>{
-          const id = `${containerId}__${o.value}`;
-          const row = document.createElement('div');
-          row.className = 'cd-item';
-          row.innerHTML = `
-            <label for="${id}">
-              <input type="checkbox" id="${id}" value="${o.value}" ${selected.has(o.value)?'checked':''}/>
-              <span>${o.label || o.value}</span>
+        
+        filtered.forEach(option => {
+          const item = document.createElement('div');
+          item.className = 'cd-item';
+          const checkboxId = `${containerId}_${option.value}`;
+          item.innerHTML = `
+            <label for="${checkboxId}">
+              <input type="checkbox" id="${checkboxId}" value="${option.value}" ${selected.has(option.value) ? 'checked' : ''}>
+              <span>${option.label}</span>
             </label>
           `;
-          const cb = row.querySelector('input');
-          cb.addEventListener('change', ()=>{
-            if (cb.checked) selected.add(o.value); else selected.delete(o.value);
-            updateSummary(); 
-            updateSelectAllState();
-            if (onSelectionChange) onSelectionChange();
+          
+          const checkbox = item.querySelector('input');
+          checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+              selected.add(option.value);
+            } else {
+              selected.delete(option.value);
+            }
+            updateUI();
           });
-          list.appendChild(row);
+          
+          listContainer.appendChild(item);
         });
       }
       
-      function updateSummary(){
+      function updateUI() {
+        // Update trigger count
         trigger.querySelector('.count').textContent = `${selected.size} selected`;
+        
+        // Update summary
         summary.textContent = `${selected.size} selected`;
+        
+        // Update select all state
+        selectAllCheckbox.checked = options.length > 0 && selected.size === options.length;
+        selectAllCheckbox.indeterminate = selected.size > 0 && selected.size < options.length;
       }
       
-      function updateSelectAllState(){
-        const total = options.length, count = selected.size;
-        selectAll.indeterminate = count>0 && count<total;
-        selectAll.checked = total>0 && count===total;
-      }
-
-      trigger.addEventListener('click', ()=>{ 
-        panel.classList.toggle('open'); 
-        if (panel.classList.contains('open')) search.focus(); 
+      // Event listeners
+      trigger.addEventListener('click', () => {
+        panel.classList.toggle('open');
+        if (panel.classList.contains('open')) {
+          searchInput.focus();
+        }
       });
       
-      document.addEventListener('click', (e)=>{ 
-        if (!root.contains(e.target)) panel.classList.remove('open'); 
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          panel.classList.remove('open');
+        }
       });
       
-      search.addEventListener('input', ()=> render(search.value));
-      clearBtn.addEventListener('click', ()=>{ 
-        selected.clear(); 
-        render(search.value); 
-        updateSummary(); 
-        updateSelectAllState(); 
-        if (onSelectionChange) onSelectionChange(); 
+      searchInput.addEventListener('input', (e) => {
+        renderList(e.target.value);
       });
       
-      selectAll.addEventListener('change', ()=>{
-        if (selectAll.checked) {
-          options.forEach(o=> selected.add(o.value));
+      selectAllCheckbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          options.forEach(opt => selected.add(opt.value));
         } else {
           selected.clear();
         }
-        render(search.value); 
-        updateSummary();
-        if (onSelectionChange) onSelectionChange();
+        renderList(searchInput.value);
+        updateUI();
       });
-
-      function setOptions(newOptions){
-        options = newOptions || [];
-        // Clear selections that no longer exist in options
-        selected.forEach(v=>{ 
-          if (!options.some(o=>o.value===v)) selected.delete(v); 
-        });
-        render(search.value); 
-        updateSummary(); 
-        updateSelectAllState();
-      }
       
-      function getSelectedValues(){ return Array.from(selected); }
-      function clearSelection(){ 
-        selected.clear(); 
-        render(search.value); 
-        updateSummary(); 
-        updateSelectAllState(); 
-      }
-
-      render('');
-      return { setOptions, getSelectedValues, clearSelection, trigger, panel };
+      // Initialize
+      renderList();
+      updateUI();
+      
+      return {
+        setOptions: (newOptions) => {
+          options = newOptions || [];
+          // Clear selections that don't exist in new options
+          selected.forEach(val => {
+            if (!options.some(opt => opt.value === val)) {
+              selected.delete(val);
+            }
+          });
+          renderList(searchInput.value);
+          updateUI();
+        },
+        getSelectedValues: () => Array.from(selected),
+        clearSelection: () => {
+          selected.clear();
+          renderList(searchInput.value);
+          updateUI();
+        }
+      };
     }
 
     // ===== Auth bootstrap =====
     document.addEventListener('DOMContentLoaded', () => {
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
-      const qparams = new URLSearchParams(window.location.search);
-
-      const oauthError = params.get('error') || qparams.get('error');
-      const oauthErrorDesc = params.get('error_description') || qparams.get('error_description');
-
+      
+      const oauthError = params.get('error');
+      const oauthErrorDesc = params.get('error_description');
+      
       if (oauthError) {
         document.getElementById('auth-message').textContent = `OAuth error: ${oauthErrorDesc || oauthError}`;
         document.getElementById('auth-message').className = 'error-message';
         return;
       }
-
+      
       accessToken = params.get('access_token');
-
+      
       if (accessToken) {
         sessionStorage.setItem('purecloud_token', accessToken);
         window.location.hash = '';
@@ -327,113 +328,66 @@
         window.location.href = oauthUrl;
       }
     });
-
+    
     function showMessage(msg, type='error'){
       const box = document.getElementById('messageContainer');
       box.innerHTML = `<div class="${type}-message">${msg}</div>`;
       box.style.display = 'block';
       if (type === 'success') setTimeout(()=> box.style.display='none', 5000);
     }
-
+    
     function initializeApplication() {
       document.getElementById('auth-message').textContent = 'Authenticated successfully!';
       document.getElementById('authCard').style.display = 'none';
       document.getElementById('appContent').style.display = 'block';
-
-      buDropdown = createCheckboxDropdown('businessUnitsDD', { 
-        placeholder:'Select business units', 
-        searchPlaceholder:'Search business units...',
-        onSelectionChange: handleBusinessUnitsSelectionChange
-      });
+      
+      // Create business units dropdown
+      buDropdown = createSimpleCheckboxDropdown('businessUnitsDD', 'Select business units');
       
       fetchBusinessUnits();
       
+      // Add event listeners
       document.getElementById('category').addEventListener('change', handleCategoryChange);
       document.getElementById('create-button').addEventListener('click', createActivityCode);
+    }
+    
+    // Handle category change
+    function handleCategoryChange() {
+      const category = document.getElementById('category').value;
+      const workHandlingSettings = document.getElementById('workHandlingSettings');
       
-      // Add event listeners for auto-grey-out logic
-      setupAutoGreyOutLogic();
+      // Update checkbox states based on category
+      updateCheckboxStatesForCategory(category);
+      
+      if (category === 'OnQueueWork') {
+        workHandlingSettings.style.display = 'block';
+        updateWorkHandlingSections();
+      } else {
+        workHandlingSettings.style.display = 'none';
+        planningGroupsData.clear();
+      }
     }
-
-    // Setup auto-grey-out logic for checkboxes
-    function setupAutoGreyOutLogic() {
+    
+    // Update checkbox states based on category
+    function updateCheckboxStatesForCategory(category) {
       const checkboxes = [
-        { id: 'shrinkage', disableOnChecked: ['planned-shrinkage'] },
-        { id: 'planned-shrinkage', disableOnChecked: ['shrinkage'] },
-        { id: 'paid-time', enableOnChecked: ['work-time'] },
-        { id: 'work-time', enableOnChecked: ['paid-time'] }
-      ];
-
-      checkboxes.forEach(config => {
-        const checkbox = document.getElementById(config.id);
-        if (checkbox) {
-          checkbox.addEventListener('change', () => {
-            updateCheckboxStates();
-          });
-        }
-      });
-
-      // Initial update
-      updateCheckboxStates();
-    }
-
-    function updateCheckboxStates() {
-      const shrinkageChecked = document.getElementById('shrinkage').checked;
-      const plannedShrinkageChecked = document.getElementById('planned-shrinkage').checked;
-      const paidTimeChecked = document.getElementById('paid-time').checked;
-      const workTimeChecked = document.getElementById('work-time').checked;
-
-      // If shrinkage is checked, disable planned shrinkage
-      if (shrinkageChecked) {
-        document.getElementById('planned-shrinkage').disabled = true;
-        document.getElementById('planned-shrinkage-label').classList.add('option-disabled');
-      } else {
-        document.getElementById('planned-shrinkage').disabled = false;
-        document.getElementById('planned-shrinkage-label').classList.remove('option-disabled');
-      }
-
-      // If planned shrinkage is checked, disable shrinkage
-      if (plannedShrinkageChecked) {
-        document.getElementById('shrinkage').disabled = true;
-        document.getElementById('shrinkage-label').classList.add('option-disabled');
-      } else {
-        document.getElementById('shrinkage').disabled = false;
-        document.getElementById('shrinkage-label').classList.remove('option-disabled');
-      }
-
-      // If work time is unchecked, disable paid time
-      if (!workTimeChecked) {
-        document.getElementById('paid-time').disabled = true;
-        document.getElementById('paid-time-label').classList.add('option-disabled');
-      } else {
-        document.getElementById('paid-time').disabled = false;
-        document.getElementById('paid-time-label').classList.remove('option-disabled');
-      }
-    }
-
-    function handleBusinessUnitsSelectionChange() {
-      if (document.getElementById('category').value === 'OnQueueWork') {
-        handleCategoryChange();
-      }
-    }
-
-    function updateCheckboxOptionsForCategory(category) {
-      const checkboxes = [
-        'shrinkage', 'planned-shrinkage', 'interruptible', 
-        'paid-time', 'work-time', 'time-off-selectable'
+        { id: 'shrinkage', labelId: 'shrinkage-label' },
+        { id: 'planned-shrinkage', labelId: 'planned-shrinkage-label' },
+        { id: 'interruptible', labelId: 'interruptible-label' },
+        { id: 'work-time', labelId: 'work-time-label' },
+        { id: 'time-off-selectable', labelId: 'time-off-selectable-label' }
       ];
       
-      // Reset all to enabled state
-      checkboxes.forEach(id => {
+      // Reset all
+      checkboxes.forEach(({ id, labelId }) => {
         const checkbox = document.getElementById(id);
-        const label = document.getElementById(`${id}-label`);
+        const label = document.getElementById(labelId);
         if (checkbox && label) {
           checkbox.disabled = false;
           label.classList.remove('disabled-option');
-          label.classList.remove('option-disabled');
         }
       });
-
+      
       if (category === 'OnQueueWork') {
         // On Queue rules
         document.getElementById('shrinkage').checked = false;
@@ -454,184 +408,179 @@
         document.getElementById('time-off-selectable').checked = false;
         document.getElementById('time-off-selectable').disabled = true;
         document.getElementById('time-off-selectable-label').classList.add('disabled-option');
-        
-      } else if (category === 'TimeOff') {
-        document.getElementById('work-time').checked = false;
-        document.getElementById('work-time').disabled = true;
-        document.getElementById('work-time-label').classList.add('disabled-option');
-        
-        document.getElementById('interruptible').checked = false;
-        document.getElementById('interruptible').disabled = true;
-        document.getElementById('interruptible-label').classList.add('disabled-option');
-        
-      } else if (category === 'Break' || category === 'Meal') {
-        document.getElementById('interruptible').checked = false;
-        document.getElementById('interruptible').disabled = true;
-        document.getElementById('interruptible-label').classList.add('disabled-option');
-      }
-      
-      // Update auto-grey-out states
-      updateCheckboxStates();
-    }
-
-    function handleCategoryChange() {
-      const category = document.getElementById('category').value;
-      const workHandlingSettings = document.getElementById('workHandlingSettings');
-      const workHandlingBUs = document.getElementById('workHandlingBUs');
-      
-      updateCheckboxOptionsForCategory(category);
-      
-      if (category === 'OnQueueWork') {
-        workHandlingSettings.style.display = 'block';
-        updateWorkHandlingSections();
-      } else {
-        workHandlingSettings.style.display = 'none';
-        buWorkHandlingDropdowns.clear();
       }
     }
-
+    
+    // Update work handling sections
     function updateWorkHandlingSections() {
       const workHandlingBUs = document.getElementById('workHandlingBUs');
       workHandlingBUs.innerHTML = '';
-      buWorkHandlingDropdowns.clear();
+      planningGroupsData.clear();
       
       const selectedBUs = buDropdown.getSelectedValues();
       
-      if (selectedBUs.length > 0) {
-        selectedBUs.forEach(buId => {
-          const buData = businessUnitsData.find(bu => bu.id === buId);
-          if (buData) {
-            const containerId = `workHandling_${buId}`;
-            const container = document.createElement('div');
-            container.id = containerId;
-            container.className = 'bu-work-handling-item';
-            container.innerHTML = `
-              <h4>${buData.name}</h4>
-              <div class="checkbox-dropdown" id="${containerId}_dropdown"></div>
-              <div class="muted">Select planning groups (optional)</div>
-            `;
-            workHandlingBUs.appendChild(container);
-            
-            // Create dropdown
-            const dropdown = createCheckboxDropdown(`${containerId}_dropdown`, { 
-              placeholder: 'Select planning groups...', 
-              searchPlaceholder: 'Search planning groups...' 
-            });
-            
-            if (dropdown) {
-              buWorkHandlingDropdowns.set(buId, dropdown);
-              fetchPlanningGroupsForBU(buId, buData.name);
-            }
-          }
-        });
-      } else {
-        workHandlingBUs.innerHTML = '<div class="muted">Please select at least one business unit to configure work handling settings.</div>';
+      if (selectedBUs.length === 0) {
+        workHandlingBUs.innerHTML = '<div class="muted">Please select business units above to configure work handling settings.</div>';
+        return;
       }
-    }
-
-    async function fetchBusinessUnits() {
-      try {
-        const base = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits?pageSize=100';
-        let businessUnits = [];
-        let nextPageUrl = base;
-
-        while (nextPageUrl) {
-          const response = await fetch(nextPageUrl, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+      
+      selectedBUs.forEach(buId => {
+        const buData = businessUnitsData.find(bu => bu.id === buId);
+        if (!buData) return;
+        
+        // Create container for this BU
+        const containerId = `workHandling_${buId}`;
+        const container = document.createElement('div');
+        container.id = containerId;
+        container.className = 'bu-work-handling-item';
+        container.innerHTML = `
+          <h4>${buData.name}</h4>
+          <div class="checkbox-dropdown" id="${containerId}_dropdown"></div>
+          <div class="muted">Select planning groups (optional) - Loading...</div>
+        `;
+        workHandlingBUs.appendChild(container);
+        
+        // Create dropdown immediately
+        const dropdown = createSimpleCheckboxDropdown(`${containerId}_dropdown`, 'Select planning groups...');
+        if (dropdown) {
+          // Store in our map
+          planningGroupsData.set(buId, {
+            dropdown: dropdown,
+            buName: buData.name
           });
           
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          
-          const data = await response.json();
-          businessUnits = businessUnits.concat(data.entities || []);
-          nextPageUrl = (data.pageCount > data.pageNumber) ? `${base}&pageNumber=${(data.pageNumber || 1) + 1}` : null;
+          // Fetch planning groups
+          fetchPlanningGroups(buId);
         }
-
-        businessUnitsData = businessUnits;
+      });
+    }
+    
+    // Fetch business units
+    async function fetchBusinessUnits() {
+      try {
+        const response = await fetch('https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits?pageSize=100', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
         
-        const opts = businessUnits
-          .map(u => ({ value: u.id, label: u.name }))
-          .sort((a,b)=> a.label.localeCompare(b.label));
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
-        buDropdown.setOptions(opts);
+        const data = await response.json();
+        businessUnitsData = data.entities || [];
+        
+        const options = businessUnitsData
+          .map(bu => ({ value: bu.id, label: bu.name }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        
+        buDropdown.setOptions(options);
+        
+        // Listen for changes to business unit selection
+        const businessUnitsContainer = document.getElementById('businessUnitsDD');
+        if (businessUnitsContainer) {
+          // We'll check for changes by listening to clicks and checking after a delay
+          businessUnitsContainer.addEventListener('click', () => {
+            setTimeout(() => {
+              if (document.getElementById('category').value === 'OnQueueWork') {
+                updateWorkHandlingSections();
+              }
+            }, 100);
+          });
+        }
         
       } catch (error) {
-        console.error('Error in fetchBusinessUnits:', error);
+        console.error('Error fetching business units:', error);
         showMessage(`Error loading business units: ${error.message}`, 'error');
       }
     }
-
-    async function fetchPlanningGroupsForBU(businessUnitId, businessUnitName) {
+    
+    // Fetch planning groups for a business unit
+    async function fetchPlanningGroups(businessUnitId) {
+      const planningGroupInfo = planningGroupsData.get(businessUnitId);
+      if (!planningGroupInfo) return;
+      
+      const container = document.getElementById(`workHandling_${businessUnitId}`);
+      if (!container) return;
+      
       try {
-        const dropdownContainer = document.getElementById(`workHandling_${businessUnitId}`);
-        if (!dropdownContainer) return;
+        // Show loading state
+        const mutedDiv = container.querySelector('.muted');
+        if (mutedDiv) {
+          mutedDiv.innerHTML = '<span class="loading"><span class="spinner"></span>Loading planning groups...</span>';
+        }
         
-        const dropdownDiv = dropdownContainer.querySelector('.checkbox-dropdown');
-        if (!dropdownDiv) return;
-        
-        dropdownDiv.innerHTML = `<div class="loading"><span class="spinner"></span>Loading planning groups...</div>`;
-
         const response = await fetch(
           `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/planninggroups?pageSize=100`,
           {
-            method: 'GET',
-            headers: { 
-              'Authorization': `Bearer ${accessToken}`, 
-              'Content-Type': 'application/json' 
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
             }
           }
         );
-
+        
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
         const planningGroups = data.entities || [];
         
-        const opts = planningGroups
-          .map(pg => ({ 
-            value: pg.id, 
-            label: pg.name || `Planning Group ${pg.id}` 
-          }))
+        const options = planningGroups
+          .map(pg => ({ value: pg.id, label: pg.name || `Planning Group ${pg.id}` }))
           .sort((a, b) => a.label.localeCompare(b.label));
         
-        const dropdown = buWorkHandlingDropdowns.get(businessUnitId);
-        if (dropdown) {
-          dropdown.setOptions(opts);
+        // Update dropdown with planning groups
+        planningGroupInfo.dropdown.setOptions(options);
+        
+        // Update status message
+        if (mutedDiv) {
+          if (options.length === 0) {
+            mutedDiv.textContent = 'No planning groups found';
+          } else {
+            mutedDiv.textContent = `Select planning groups (optional) - ${options.length} available`;
+          }
         }
         
       } catch (error) {
-        console.error(`Error fetching planning groups for ${businessUnitName}:`, error);
-        const dropdown = buWorkHandlingDropdowns.get(businessUnitId);
-        if (dropdown) {
-          dropdown.setOptions([]);
+        console.error(`Error fetching planning groups for BU ${businessUnitId}:`, error);
+        
+        const mutedDiv = container.querySelector('.muted');
+        if (mutedDiv) {
+          mutedDiv.textContent = `Error loading planning groups: ${error.message}`;
+          mutedDiv.style.color = '#b4231a';
         }
+        
+        // Set empty options on error
+        planningGroupInfo.dropdown.setOptions([]);
       }
     }
-
+    
+    // Create activity code
     async function createActivityCode() {
       const resultsDiv = document.getElementById('results');
       resultsDiv.style.display = 'block';
       resultsDiv.innerHTML = '';
-
+      
+      // Get form values
       const name = document.getElementById('activity-name').value.trim();
       const category = document.getElementById('category').value;
       const lengthInMinutes = parseInt(document.getElementById('length').value, 10) || null;
-
       const businessUnits = buDropdown.getSelectedValues();
-
+      
+      // Validation
       if (!name) { resultsDiv.innerHTML = `<div class="error-message">Please enter an activity name.</div>`; return; }
       if (!category) { resultsDiv.innerHTML = `<div class="error-message">Please select a category.</div>`; return; }
       if (businessUnits.length === 0) { resultsDiv.innerHTML = `<div class="error-message">Please select at least one business unit.</div>`; return; }
-
+      
+      // Get checkbox values
       const countsAsPaidTime = document.getElementById('paid-time').checked;
       const countsAsWorkTime = document.getElementById('work-time').checked;
       const agentTimeOffSelectable = document.getElementById('time-off-selectable').checked;
       const countsTowardShrinkage = document.getElementById('shrinkage').checked;
       const plannedShrinkage = document.getElementById('planned-shrinkage').checked;
       const interruptible = document.getElementById('interruptible').checked;
-
-      // Validate category-specific rules
+      
+      // Category-specific validation
       if (category === 'OnQueueWork') {
         if (countsTowardShrinkage) {
           resultsDiv.innerHTML = `<div class="error-message">"Counts Toward Shrinkage" cannot be true for On Queue activities.</div>`;
@@ -650,85 +599,103 @@
           return;
         }
       }
-
-      if (category === 'TimeOff') {
-        if (countsAsWorkTime) {
-          resultsDiv.innerHTML = `<div class="error-message">"Counts as Work Time" cannot be true for Time Off activities.</div>`;
-          return;
-        }
-        if (interruptible) {
-          resultsDiv.innerHTML = `<div class="error-message">"Interruptible" cannot be true for Time Off activities.</div>`;
-          return;
-        }
-      }
-
+      
+      // Disable button during processing
       const button = document.getElementById('create-button');
       button.disabled = true;
-      const originalLabel = button.textContent;
+      const originalText = button.textContent;
       button.textContent = 'Processing...';
-
+      
       try {
-        const ops = businessUnits.map(businessUnitId => (async () => {
-          const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`;
-          
-          const activityData = {
-            name, 
-            category, 
-            lengthInMinutes,
-            countsAsPaidTime, 
-            countsAsWorkTime, 
-            agentTimeOffSelectable,
-            countsTowardShrinkage, 
-            plannedShrinkage, 
-            interruptible
-          };
-
-          // Add planningGroupIds if category is OnQueueWork (optional - can be empty)
-          if (category === 'OnQueueWork') {
-            const dropdown = buWorkHandlingDropdowns.get(businessUnitId);
-            if (dropdown) {
-              const planningGroupIds = dropdown.getSelectedValues();
-              // Even if empty, we can include it - it's optional
-              activityData.planningGroupIds = planningGroupIds;
+        // Create activity code in each selected business unit
+        const promises = businessUnits.map(businessUnitId => {
+          return (async () => {
+            const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`;
+            
+            // Build activity data
+            const activityData = {
+              name,
+              category,
+              lengthInMinutes,
+              countsAsPaidTime,
+              countsAsWorkTime,
+              agentTimeOffSelectable,
+              countsTowardShrinkage,
+              plannedShrinkage,
+              interruptible
+            };
+            
+            // Add planning groups if category is OnQueueWork
+            if (category === 'OnQueueWork') {
+              const planningGroupInfo = planningGroupsData.get(businessUnitId);
+              if (planningGroupInfo && planningGroupInfo.dropdown) {
+                const planningGroupIds = planningGroupInfo.dropdown.getSelectedValues();
+                if (planningGroupIds.length > 0) {
+                  activityData.planningGroupIds = planningGroupIds;
+                }
+              }
             }
+            
+            // Make API call
+            const response = await fetch(createUrl, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(activityData)
+            });
+            
+            const data = await response.json().catch(() => ({}));
+            
+            if (!response.ok) {
+              throw new Error(data.message || `HTTP ${response.status}`);
+            }
+            
+            return { businessUnitId, success: true };
+          })();
+        });
+        
+        // Wait for all promises to settle
+        const results = await Promise.allSettled(promises);
+        
+        // Process results
+        const successes = [];
+        const failures = [];
+        
+        results.forEach((result, index) => {
+          const businessUnitId = businessUnits[index];
+          if (result.status === 'fulfilled') {
+            successes.push(businessUnitId);
+          } else {
+            failures.push({
+              businessUnitId,
+              error: result.reason?.message || 'Unknown error'
+            });
           }
-
-          const res = await fetch(createUrl, {
-            method: 'POST',
-            headers: { 
-              'Authorization': `Bearer ${accessToken}`, 
-              'Content-Type': 'application/json' 
-            },
-            body: JSON.stringify(activityData)
-          });
-          
-          const data = await res.json().catch(()=> ({}));
-          if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
-          return { businessUnitId, ok: true };
-        })());
-
-        const results = await Promise.allSettled(ops);
-        const successes = results.filter(r => r.status === 'fulfilled').map(r => r.value.businessUnitId);
-        const failures = results
-          .filter(r => r.status === 'rejected')
-          .map((r, i) => ({ businessUnitId: businessUnits[i], error: r.reason?.message || 'Unknown error' }));
-
+        });
+        
+        // Display results
         if (failures.length === 0) {
-          resultsDiv.innerHTML = `<div class="success-message">Activity code created successfully in ${successes.length} business unit(s).</div>`;
+          resultsDiv.innerHTML = `<div class="success-message">Successfully created activity code in ${successes.length} business unit(s).</div>`;
         } else if (successes.length === 0) {
-          resultsDiv.innerHTML = `<div class="error-message">Failed to create activity code in all selected business units.</div>
+          resultsDiv.innerHTML = `<div class="error-message">Failed to create activity code in all business units.</div>
             <ul>${failures.map(f => `<li><strong>${f.businessUnitId}</strong>: ${f.error}</li>`).join('')}</ul>`;
         } else {
-          resultsDiv.innerHTML = `<div class="success-message">Created in ${successes.length} business unit(s).</div>
-            <div class="error-message" style="margin-top:8px;">Failed in ${failures.length} unit(s):</div>
-            <ul>${failures.map(f => `<li><strong>${f.businessUnitId}</strong>: ${f.error}</li>`).join('')}</ul>`;
+          resultsDiv.innerHTML = `
+            <div class="success-message">Created in ${successes.length} business unit(s).</div>
+            <div class="error-message" style="margin-top:8px;">Failed in ${failures.length} business unit(s):</div>
+            <ul>${failures.map(f => `<li><strong>${f.businessUnitId}</strong>: ${f.error}</li>`).join('')}</ul>
+          `;
         }
+        
       } catch (error) {
-        console.error('Error in createActivityCode:', error);
-        resultsDiv.innerHTML = `<div class="error-message">Error creating activity code: ${error.message}</div>`;
+        console.error('Error creating activity codes:', error);
+        resultsDiv.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
       } finally {
+        // Re-enable button
         button.disabled = false;
-        button.textContent = originalLabel;
+        button.textContent = originalText;
       }
     }
   </script>
