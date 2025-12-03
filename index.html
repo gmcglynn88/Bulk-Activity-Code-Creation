@@ -158,12 +158,16 @@
     let accessToken = null;
     let buDropdown = null;
     let businessUnitsData = [];
-    let planningGroupsData = new Map(); // Map to store planning groups for each BU: businessUnitId -> {dropdown, selectedValues}
+    let planningGroupsData = new Map();
 
     // ===== SIMPLE Checkbox Dropdown =====
     function createSimpleCheckboxDropdown(containerId, placeholder = 'Select items') {
+      console.log(`Creating dropdown for ${containerId}`);
       const container = document.getElementById(containerId);
-      if (!container) return null;
+      if (!container) {
+        console.error(`Container ${containerId} not found`);
+        return null;
+      }
       
       // Clear container
       container.innerHTML = '';
@@ -282,6 +286,7 @@
       
       return {
         setOptions: (newOptions) => {
+          console.log(`Setting options for ${containerId}:`, newOptions);
           options = newOptions || [];
           // Clear selections that don't exist in new options
           selected.forEach(val => {
@@ -412,21 +417,27 @@
     }
     
     // Update work handling sections
-    function updateWorkHandlingSections() {
+    async function updateWorkHandlingSections() {
+      console.log('Updating work handling sections');
       const workHandlingBUs = document.getElementById('workHandlingBUs');
       workHandlingBUs.innerHTML = '';
       planningGroupsData.clear();
       
       const selectedBUs = buDropdown.getSelectedValues();
+      console.log('Selected BUs:', selectedBUs);
       
       if (selectedBUs.length === 0) {
         workHandlingBUs.innerHTML = '<div class="muted">Please select business units above to configure work handling settings.</div>';
         return;
       }
       
-      selectedBUs.forEach(buId => {
+      // Process BUs one at a time to avoid overwhelming the API
+      for (const buId of selectedBUs) {
         const buData = businessUnitsData.find(bu => bu.id === buId);
-        if (!buData) return;
+        if (!buData) {
+          console.warn(`Business unit data not found for ID: ${buId}`);
+          continue;
+        }
         
         // Create container for this BU
         const containerId = `workHandling_${buId}`;
@@ -436,11 +447,11 @@
         container.innerHTML = `
           <h4>${buData.name}</h4>
           <div class="checkbox-dropdown" id="${containerId}_dropdown"></div>
-          <div class="muted">Select planning groups (optional) - Loading...</div>
+          <div class="muted" id="${containerId}_status">Loading planning groups...</div>
         `;
         workHandlingBUs.appendChild(container);
         
-        // Create dropdown immediately
+        // Create empty dropdown immediately
         const dropdown = createSimpleCheckboxDropdown(`${containerId}_dropdown`, 'Select planning groups...');
         if (dropdown) {
           // Store in our map
@@ -449,15 +460,25 @@
             buName: buData.name
           });
           
-          // Fetch planning groups
-          fetchPlanningGroups(buId);
+          // Fetch planning groups one at a time with delay
+          try {
+            await fetchPlanningGroups(buId);
+          } catch (error) {
+            console.error(`Failed to fetch planning groups for ${buData.name}:`, error);
+            const statusDiv = document.getElementById(`${containerId}_status`);
+            if (statusDiv) {
+              statusDiv.textContent = `Error loading planning groups: ${error.message}`;
+              statusDiv.style.color = '#b4231a';
+            }
+          }
         }
-      });
+      }
     }
     
     // Fetch business units
     async function fetchBusinessUnits() {
       try {
+        console.log('Fetching business units...');
         const response = await fetch('https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits?pageSize=100', {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -465,10 +486,16 @@
           }
         });
         
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        console.log('Business units response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
         
         const data = await response.json();
         businessUnitsData = data.entities || [];
+        console.log(`Found ${businessUnitsData.length} business units`);
         
         const options = businessUnitsData
           .map(bu => ({ value: bu.id, label: bu.name }))
@@ -479,13 +506,13 @@
         // Listen for changes to business unit selection
         const businessUnitsContainer = document.getElementById('businessUnitsDD');
         if (businessUnitsContainer) {
-          // We'll check for changes by listening to clicks and checking after a delay
+          // Simple click handler to detect changes
           businessUnitsContainer.addEventListener('click', () => {
             setTimeout(() => {
               if (document.getElementById('category').value === 'OnQueueWork') {
                 updateWorkHandlingSections();
               }
-            }, 100);
+            }, 300); // Give time for selection to update
           });
         }
         
@@ -497,19 +524,27 @@
     
     // Fetch planning groups for a business unit
     async function fetchPlanningGroups(businessUnitId) {
+      console.log(`Fetching planning groups for BU: ${businessUnitId}`);
       const planningGroupInfo = planningGroupsData.get(businessUnitId);
-      if (!planningGroupInfo) return;
+      if (!planningGroupInfo) {
+        console.error(`No planning group info found for BU: ${businessUnitId}`);
+        return;
+      }
       
       const container = document.getElementById(`workHandling_${businessUnitId}`);
-      if (!container) return;
+      if (!container) {
+        console.error(`Container not found for BU: ${businessUnitId}`);
+        return;
+      }
       
       try {
-        // Show loading state
-        const mutedDiv = container.querySelector('.muted');
-        if (mutedDiv) {
-          mutedDiv.innerHTML = '<span class="loading"><span class="spinner"></span>Loading planning groups...</span>';
+        // Update status
+        const statusDiv = document.getElementById(`workHandling_${businessUnitId}_status`);
+        if (statusDiv) {
+          statusDiv.innerHTML = '<span class="loading"><span class="spinner"></span>Loading planning groups...</span>';
         }
         
+        // Make API call
         const response = await fetch(
           `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/planninggroups?pageSize=100`,
           {
@@ -520,38 +555,49 @@
           }
         );
         
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        console.log(`Planning groups response for ${businessUnitId}:`, response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
         
         const data = await response.json();
         const planningGroups = data.entities || [];
+        console.log(`Found ${planningGroups.length} planning groups for BU ${businessUnitId}`);
         
         const options = planningGroups
-          .map(pg => ({ value: pg.id, label: pg.name || `Planning Group ${pg.id}` }))
+          .map(pg => ({ 
+            value: pg.id, 
+            label: pg.name || `Planning Group ${pg.id}` 
+          }))
           .sort((a, b) => a.label.localeCompare(b.label));
         
         // Update dropdown with planning groups
         planningGroupInfo.dropdown.setOptions(options);
         
         // Update status message
-        if (mutedDiv) {
+        if (statusDiv) {
           if (options.length === 0) {
-            mutedDiv.textContent = 'No planning groups found';
+            statusDiv.textContent = 'No planning groups found';
           } else {
-            mutedDiv.textContent = `Select planning groups (optional) - ${options.length} available`;
+            statusDiv.textContent = `Select planning groups (optional) - ${options.length} available`;
           }
         }
         
       } catch (error) {
         console.error(`Error fetching planning groups for BU ${businessUnitId}:`, error);
         
-        const mutedDiv = container.querySelector('.muted');
-        if (mutedDiv) {
-          mutedDiv.textContent = `Error loading planning groups: ${error.message}`;
-          mutedDiv.style.color = '#b4231a';
+        const statusDiv = document.getElementById(`workHandling_${businessUnitId}_status`);
+        if (statusDiv) {
+          statusDiv.textContent = `Error loading planning groups: ${error.message}`;
+          statusDiv.style.color = '#b4231a';
         }
         
         // Set empty options on error
         planningGroupInfo.dropdown.setOptions([]);
+        
+        throw error; // Re-throw for calling function
       }
     }
     
@@ -636,6 +682,8 @@
               }
             }
             
+            console.log(`Creating activity for BU ${businessUnitId}:`, activityData);
+            
             // Make API call
             const response = await fetch(createUrl, {
               method: 'POST',
@@ -649,7 +697,7 @@
             const data = await response.json().catch(() => ({}));
             
             if (!response.ok) {
-              throw new Error(data.message || `HTTP ${response.status}`);
+              throw new Error(data.message || `HTTP ${response.status}: ${JSON.stringify(data)}`);
             }
             
             return { businessUnitId, success: true };
