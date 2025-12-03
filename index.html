@@ -60,6 +60,7 @@
     /* Disabled option styling */
     .disabled-option { opacity: 0.6; cursor: not-allowed; }
     .disabled-option input[type="checkbox"] { cursor: not-allowed; }
+    .option-disabled { opacity: 0.5; pointer-events: none; }
     
     /* Loading spinner */
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: var(--primary-color); animation: spin 1s ease-in-out infinite; }
@@ -136,7 +137,8 @@
 
       <!-- Work Handling Settings Section (Visible only for On Queue) -->
       <div id="workHandlingSettings">
-        <h3>Work Handling Settings</h3>
+        <h3>Work Handling Settings (Optional)</h3>
+        <div class="muted" style="margin-bottom: 12px;">Select planning groups that can be supported by this activity. If none selected, activity will be available to all planning groups.</div>
         <div id="workHandlingBUs" class="bu-work-handling-container">
           <!-- Business unit work handling items will be dynamically added here -->
         </div>
@@ -157,19 +159,12 @@
     
     const oauthUrl = `https://login.mypurecloud.ie/oauth/authorize?client_id=${encodeURIComponent(clientId)}&response_type=token&redirect_uri=${encodeURIComponent(redirectUri)}`;
 
-    // Debug logging
-    console.log('OAuth Configuration:');
-    console.log('- Client ID:', clientId);
-    console.log('- Redirect URI:', redirectUri);
-    console.log('- Encoded Redirect URI:', encodeURIComponent(redirectUri));
-    console.log('- Full OAuth URL:', oauthUrl);
-
     let accessToken = null;
     let buDropdown = null;
-    let businessUnitsData = []; // Store business unit data
-    let buWorkHandlingDropdowns = new Map(); // Map to store dropdowns for each BU
+    let businessUnitsData = [];
+    let buWorkHandlingDropdowns = new Map();
 
-    // ===== Checkbox Dropdown (generic) with event tracking =====
+    // ===== Checkbox Dropdown (generic) =====
     function createCheckboxDropdown(containerId, { placeholder='Select items', searchPlaceholder='Search...', onSelectionChange=null } = {}){
       const root = document.getElementById(containerId);
       if (!root) {
@@ -209,14 +204,17 @@
       const selectAll = panel.querySelector('[data-cd="selectall"]');
       const summary = panel.querySelector('[data-cd="summary"]');
 
-      let options = []; // [{value, label}]
+      let options = [];
       let selected = new Set();
 
       function render(filter=''){
         const ft = filter.trim().toLowerCase();
         list.innerHTML = '';
         const filtered = !ft ? options : options.filter(o => (o.label||'').toLowerCase().includes(ft));
-        if (!filtered.length){ list.innerHTML = `<div class="cd-item" style="color:#6C757D">No matches</div>`; return; }
+        if (!filtered.length){ 
+          list.innerHTML = `<div class="cd-item" style="color:#6C757D">No matches</div>`; 
+          return; 
+        }
         filtered.forEach(o=>{
           const id = `${containerId}__${o.value}`;
           const row = document.createElement('div');
@@ -230,8 +228,8 @@
           const cb = row.querySelector('input');
           cb.addEventListener('change', ()=>{
             if (cb.checked) selected.add(o.value); else selected.delete(o.value);
-            updateSummary(); updateSelectAllState();
-            // Call selection change callback if provided
+            updateSummary(); 
+            updateSelectAllState();
             if (onSelectionChange) onSelectionChange();
           });
           list.appendChild(row);
@@ -249,47 +247,60 @@
         selectAll.checked = total>0 && count===total;
       }
 
-      trigger.addEventListener('click', ()=>{ panel.classList.toggle('open'); search.focus(); });
-      document.addEventListener('click', (e)=>{ if (!root.contains(e.target)) panel.classList.remove('open'); });
+      trigger.addEventListener('click', ()=>{ 
+        panel.classList.toggle('open'); 
+        if (panel.classList.contains('open')) search.focus(); 
+      });
+      
+      document.addEventListener('click', (e)=>{ 
+        if (!root.contains(e.target)) panel.classList.remove('open'); 
+      });
+      
       search.addEventListener('input', ()=> render(search.value));
-      clearBtn.addEventListener('click', ()=>{ selected.clear(); render(search.value); updateSummary(); updateSelectAllState(); if (onSelectionChange) onSelectionChange(); });
+      clearBtn.addEventListener('click', ()=>{ 
+        selected.clear(); 
+        render(search.value); 
+        updateSummary(); 
+        updateSelectAllState(); 
+        if (onSelectionChange) onSelectionChange(); 
+      });
+      
       selectAll.addEventListener('change', ()=>{
-        if (selectAll.checked) options.forEach(o=> selected.add(o.value)); else selected.clear();
-        render(search.value); updateSummary();
+        if (selectAll.checked) {
+          options.forEach(o=> selected.add(o.value));
+        } else {
+          selected.clear();
+        }
+        render(search.value); 
+        updateSummary();
         if (onSelectionChange) onSelectionChange();
       });
 
       function setOptions(newOptions){
         options = newOptions || [];
-        selected.forEach(v=>{ if (!options.some(o=>o.value===v)) selected.delete(v); });
-        render(search.value); updateSummary(); updateSelectAllState();
+        // Clear selections that no longer exist in options
+        selected.forEach(v=>{ 
+          if (!options.some(o=>o.value===v)) selected.delete(v); 
+        });
+        render(search.value); 
+        updateSummary(); 
+        updateSelectAllState();
       }
       
       function getSelectedValues(){ return Array.from(selected); }
-      function clearSelection(){ selected.clear(); render(search.value); updateSummary(); updateSelectAllState(); }
+      function clearSelection(){ 
+        selected.clear(); 
+        render(search.value); 
+        updateSummary(); 
+        updateSelectAllState(); 
+      }
 
       render('');
-      return { setOptions, getSelectedValues, clearSelection };
-    }
-
-    // ===== Create Work Handling Dropdown for a Business Unit =====
-    function createWorkHandlingDropdown(businessUnitId, businessUnitName) {
-      const containerId = `workHandling_${businessUnitId}`;
-      const container = document.createElement('div');
-      container.id = containerId;
-      container.className = 'bu-work-handling-item';
-      container.innerHTML = `
-        <h4>${businessUnitName}</h4>
-        <div class="checkbox-dropdown" id="${containerId}_dropdown"></div>
-        <div class="muted">Select planning groups for ${businessUnitName}</div>
-      `;
-      
-      return container;
+      return { setOptions, getSelectedValues, clearSelection, trigger, panel };
     }
 
     // ===== Auth bootstrap =====
     document.addEventListener('DOMContentLoaded', () => {
-      // Parse OAuth error from the URL
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
       const qparams = new URLSearchParams(window.location.search);
@@ -300,7 +311,6 @@
       if (oauthError) {
         document.getElementById('auth-message').textContent = `OAuth error: ${oauthErrorDesc || oauthError}`;
         document.getElementById('auth-message').className = 'error-message';
-        console.error('OAuth error details:', { error: oauthError, description: oauthErrorDesc });
         return;
       }
 
@@ -308,14 +318,12 @@
 
       if (accessToken) {
         sessionStorage.setItem('purecloud_token', accessToken);
-        // Clean URL after successful auth
         window.location.hash = '';
         initializeApplication();
       } else if (sessionStorage.getItem('purecloud_token')) {
         accessToken = sessionStorage.getItem('purecloud_token');
         initializeApplication();
       } else {
-        console.log('Initiating OAuth flow with:', { clientId, redirectUri });
         window.location.href = oauthUrl;
       }
     });
@@ -332,165 +340,195 @@
       document.getElementById('authCard').style.display = 'none';
       document.getElementById('appContent').style.display = 'block';
 
-      // Create business units dropdown with callback for selection changes
       buDropdown = createCheckboxDropdown('businessUnitsDD', { 
         placeholder:'Select business units', 
         searchPlaceholder:'Search business units...',
         onSelectionChange: handleBusinessUnitsSelectionChange
       });
       
-      if (!buDropdown) {
-        showMessage('Failed to initialize business units dropdown', 'error');
-        return;
-      }
-      
       fetchBusinessUnits();
       
-      // Add event listener for category change
       document.getElementById('category').addEventListener('change', handleCategoryChange);
       document.getElementById('create-button').addEventListener('click', createActivityCode);
+      
+      // Add event listeners for auto-grey-out logic
+      setupAutoGreyOutLogic();
     }
 
-    // Handle business units selection change
+    // Setup auto-grey-out logic for checkboxes
+    function setupAutoGreyOutLogic() {
+      const checkboxes = [
+        { id: 'shrinkage', disableOnChecked: ['planned-shrinkage'] },
+        { id: 'planned-shrinkage', disableOnChecked: ['shrinkage'] },
+        { id: 'paid-time', enableOnChecked: ['work-time'] },
+        { id: 'work-time', enableOnChecked: ['paid-time'] }
+      ];
+
+      checkboxes.forEach(config => {
+        const checkbox = document.getElementById(config.id);
+        if (checkbox) {
+          checkbox.addEventListener('change', () => {
+            updateCheckboxStates();
+          });
+        }
+      });
+
+      // Initial update
+      updateCheckboxStates();
+    }
+
+    function updateCheckboxStates() {
+      const shrinkageChecked = document.getElementById('shrinkage').checked;
+      const plannedShrinkageChecked = document.getElementById('planned-shrinkage').checked;
+      const paidTimeChecked = document.getElementById('paid-time').checked;
+      const workTimeChecked = document.getElementById('work-time').checked;
+
+      // If shrinkage is checked, disable planned shrinkage
+      if (shrinkageChecked) {
+        document.getElementById('planned-shrinkage').disabled = true;
+        document.getElementById('planned-shrinkage-label').classList.add('option-disabled');
+      } else {
+        document.getElementById('planned-shrinkage').disabled = false;
+        document.getElementById('planned-shrinkage-label').classList.remove('option-disabled');
+      }
+
+      // If planned shrinkage is checked, disable shrinkage
+      if (plannedShrinkageChecked) {
+        document.getElementById('shrinkage').disabled = true;
+        document.getElementById('shrinkage-label').classList.add('option-disabled');
+      } else {
+        document.getElementById('shrinkage').disabled = false;
+        document.getElementById('shrinkage-label').classList.remove('option-disabled');
+      }
+
+      // If work time is unchecked, disable paid time
+      if (!workTimeChecked) {
+        document.getElementById('paid-time').disabled = true;
+        document.getElementById('paid-time-label').classList.add('option-disabled');
+      } else {
+        document.getElementById('paid-time').disabled = false;
+        document.getElementById('paid-time-label').classList.remove('option-disabled');
+      }
+    }
+
     function handleBusinessUnitsSelectionChange() {
-      // If On Queue is selected, update work handling sections
       if (document.getElementById('category').value === 'OnQueueWork') {
         handleCategoryChange();
       }
     }
 
-    // Update checkbox options based on category
     function updateCheckboxOptionsForCategory(category) {
-      const shrinkageCheckbox = document.getElementById('shrinkage');
-      const shrinkageLabel = document.getElementById('shrinkage-label');
-      const plannedShrinkageCheckbox = document.getElementById('planned-shrinkage');
-      const plannedShrinkageLabel = document.getElementById('planned-shrinkage-label');
-      const interruptibleCheckbox = document.getElementById('interruptible');
-      const interruptibleLabel = document.getElementById('interruptible-label');
-      const paidTimeCheckbox = document.getElementById('paid-time');
-      const paidTimeLabel = document.getElementById('paid-time-label');
-      const workTimeCheckbox = document.getElementById('work-time');
-      const workTimeLabel = document.getElementById('work-time-label');
-      const timeOffSelectableCheckbox = document.getElementById('time-off-selectable');
-      const timeOffSelectableLabel = document.getElementById('time-off-selectable-label');
-
+      const checkboxes = [
+        'shrinkage', 'planned-shrinkage', 'interruptible', 
+        'paid-time', 'work-time', 'time-off-selectable'
+      ];
+      
       // Reset all to enabled state
-      shrinkageCheckbox.disabled = false;
-      shrinkageLabel.classList.remove('disabled-option');
-      plannedShrinkageCheckbox.disabled = false;
-      plannedShrinkageLabel.classList.remove('disabled-option');
-      interruptibleCheckbox.disabled = false;
-      interruptibleLabel.classList.remove('disabled-option');
-      paidTimeCheckbox.disabled = false;
-      paidTimeLabel.classList.remove('disabled-option');
-      workTimeCheckbox.disabled = false;
-      workTimeLabel.classList.remove('disabled-option');
-      timeOffSelectableCheckbox.disabled = false;
-      timeOffSelectableLabel.classList.remove('disabled-option');
+      checkboxes.forEach(id => {
+        const checkbox = document.getElementById(id);
+        const label = document.getElementById(`${id}-label`);
+        if (checkbox && label) {
+          checkbox.disabled = false;
+          label.classList.remove('disabled-option');
+          label.classList.remove('option-disabled');
+        }
+      });
 
-      // Apply rules based on category
       if (category === 'OnQueueWork') {
         // On Queue rules
-        shrinkageCheckbox.checked = false;
-        shrinkageCheckbox.disabled = true;
-        shrinkageLabel.classList.add('disabled-option');
-        shrinkageLabel.title = "Shrinkage cannot be set for On Queue activities";
+        document.getElementById('shrinkage').checked = false;
+        document.getElementById('shrinkage').disabled = true;
+        document.getElementById('shrinkage-label').classList.add('disabled-option');
         
-        plannedShrinkageCheckbox.checked = false;
-        plannedShrinkageCheckbox.disabled = true;
-        plannedShrinkageLabel.classList.add('disabled-option');
-        plannedShrinkageLabel.title = "Planned shrinkage cannot be set for On Queue activities";
+        document.getElementById('planned-shrinkage').checked = false;
+        document.getElementById('planned-shrinkage').disabled = true;
+        document.getElementById('planned-shrinkage-label').classList.add('disabled-option');
         
-        interruptibleCheckbox.disabled = true;
-        interruptibleLabel.classList.add('disabled-option');
-        interruptibleLabel.title = "Interruptible cannot be set for On Queue activities";
+        document.getElementById('interruptible').disabled = true;
+        document.getElementById('interruptible-label').classList.add('disabled-option');
         
-        // On Queue must be counted as work time
-        workTimeCheckbox.checked = true;
-        workTimeCheckbox.disabled = true;
-        workTimeLabel.classList.add('disabled-option');
-        workTimeLabel.title = "On Queue activities always count as work time";
+        document.getElementById('work-time').checked = true;
+        document.getElementById('work-time').disabled = true;
+        document.getElementById('work-time-label').classList.add('disabled-option');
         
-        // On Queue cannot be agent time off selectable
-        timeOffSelectableCheckbox.checked = false;
-        timeOffSelectableCheckbox.disabled = true;
-        timeOffSelectableLabel.classList.add('disabled-option');
-        timeOffSelectableLabel.title = "On Queue activities cannot be agent time off selectable";
+        document.getElementById('time-off-selectable').checked = false;
+        document.getElementById('time-off-selectable').disabled = true;
+        document.getElementById('time-off-selectable-label').classList.add('disabled-option');
         
       } else if (category === 'TimeOff') {
-        // Time Off rules
-        workTimeCheckbox.checked = false;
-        workTimeCheckbox.disabled = true;
-        workTimeLabel.classList.add('disabled-option');
-        workTimeLabel.title = "Time Off activities do not count as work time";
+        document.getElementById('work-time').checked = false;
+        document.getElementById('work-time').disabled = true;
+        document.getElementById('work-time-label').classList.add('disabled-option');
         
-        interruptibleCheckbox.checked = false;
-        interruptibleCheckbox.disabled = true;
-        interruptibleLabel.classList.add('disabled-option');
-        interruptibleLabel.title = "Time Off activities cannot be interruptible";
+        document.getElementById('interruptible').checked = false;
+        document.getElementById('interruptible').disabled = true;
+        document.getElementById('interruptible-label').classList.add('disabled-option');
         
       } else if (category === 'Break' || category === 'Meal') {
-        // Break/Meal rules - typically can't be interruptible
-        interruptibleCheckbox.checked = false;
-        interruptibleCheckbox.disabled = true;
-        interruptibleLabel.classList.add('disabled-option');
-        interruptibleLabel.title = `${category} activities typically cannot be interruptible`;
+        document.getElementById('interruptible').checked = false;
+        document.getElementById('interruptible').disabled = true;
+        document.getElementById('interruptible-label').classList.add('disabled-option');
       }
+      
+      // Update auto-grey-out states
+      updateCheckboxStates();
     }
 
-    // Handle category change to show/hide work handling settings and update options
     function handleCategoryChange() {
       const category = document.getElementById('category').value;
       const workHandlingSettings = document.getElementById('workHandlingSettings');
       const workHandlingBUs = document.getElementById('workHandlingBUs');
       
-      // Update checkbox options based on category
       updateCheckboxOptionsForCategory(category);
       
       if (category === 'OnQueueWork') {
         workHandlingSettings.style.display = 'block';
-        // Clear existing work handling items
-        workHandlingBUs.innerHTML = '';
-        buWorkHandlingDropdowns.clear();
-        
-        // Get selected business units
-        const selectedBUs = buDropdown.getSelectedValues();
-        
-        if (selectedBUs.length > 0) {
-          // Create work handling section for each selected BU
-          selectedBUs.forEach(buId => {
-            const buData = businessUnitsData.find(bu => bu.id === buId);
-            if (buData) {
-              const buContainer = createWorkHandlingDropdown(buId, buData.name);
-              workHandlingBUs.appendChild(buContainer);
-              
-              // Create the dropdown for this BU
-              const dropdownId = `workHandling_${buId}_dropdown`;
-              const dropdown = createCheckboxDropdown(dropdownId, { 
-                placeholder: 'Select planning groups...', 
-                searchPlaceholder: 'Search planning groups...' 
-              });
-              
-              if (dropdown) {
-                // Store the dropdown in our map
-                buWorkHandlingDropdowns.set(buId, dropdown);
-                
-                // Fetch planning groups for this BU
-                fetchPlanningGroupsForBU(buId, buData.name);
-              }
-            }
-          });
-        } else {
-          workHandlingBUs.innerHTML = '<div class="muted">Please select at least one business unit to configure work handling settings.</div>';
-        }
+        updateWorkHandlingSections();
       } else {
         workHandlingSettings.style.display = 'none';
-        // Clear work handling dropdowns
         buWorkHandlingDropdowns.clear();
       }
     }
 
-    // ===== Data fetch =====
+    function updateWorkHandlingSections() {
+      const workHandlingBUs = document.getElementById('workHandlingBUs');
+      workHandlingBUs.innerHTML = '';
+      buWorkHandlingDropdowns.clear();
+      
+      const selectedBUs = buDropdown.getSelectedValues();
+      
+      if (selectedBUs.length > 0) {
+        selectedBUs.forEach(buId => {
+          const buData = businessUnitsData.find(bu => bu.id === buId);
+          if (buData) {
+            const containerId = `workHandling_${buId}`;
+            const container = document.createElement('div');
+            container.id = containerId;
+            container.className = 'bu-work-handling-item';
+            container.innerHTML = `
+              <h4>${buData.name}</h4>
+              <div class="checkbox-dropdown" id="${containerId}_dropdown"></div>
+              <div class="muted">Select planning groups (optional)</div>
+            `;
+            workHandlingBUs.appendChild(container);
+            
+            // Create dropdown
+            const dropdown = createCheckboxDropdown(`${containerId}_dropdown`, { 
+              placeholder: 'Select planning groups...', 
+              searchPlaceholder: 'Search planning groups...' 
+            });
+            
+            if (dropdown) {
+              buWorkHandlingDropdowns.set(buId, dropdown);
+              fetchPlanningGroupsForBU(buId, buData.name);
+            }
+          }
+        });
+      } else {
+        workHandlingBUs.innerHTML = '<div class="muted">Please select at least one business unit to configure work handling settings.</div>';
+      }
+    }
+
     async function fetchBusinessUnits() {
       try {
         const base = 'https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits?pageSize=100';
@@ -503,28 +541,20 @@
             headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
           });
           
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-          }
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
           
           const data = await response.json();
-
           businessUnits = businessUnits.concat(data.entities || []);
           nextPageUrl = (data.pageCount > data.pageNumber) ? `${base}&pageNumber=${(data.pageNumber || 1) + 1}` : null;
         }
 
-        businessUnitsData = businessUnits; // Store for later use
+        businessUnitsData = businessUnits;
         
         const opts = businessUnits
           .map(u => ({ value: u.id, label: u.name }))
           .sort((a,b)=> a.label.localeCompare(b.label));
         
-        if (buDropdown) {
-          buDropdown.setOptions(opts);
-        }
-        
-        console.log(`Loaded ${businessUnits.length} business units`);
+        buDropdown.setOptions(opts);
         
       } catch (error) {
         console.error('Error in fetchBusinessUnits:', error);
@@ -534,29 +564,14 @@
 
     async function fetchPlanningGroupsForBU(businessUnitId, businessUnitName) {
       try {
-        if (!businessUnitId) {
-          console.error('No business unit ID provided');
-          return;
-        }
-
-        // Get the dropdown container for this BU
         const dropdownContainer = document.getElementById(`workHandling_${businessUnitId}`);
-        if (!dropdownContainer) {
-          console.error(`Dropdown container for BU ${businessUnitId} not found`);
-          return;
-        }
+        if (!dropdownContainer) return;
         
-        // Show loading state
         const dropdownDiv = dropdownContainer.querySelector('.checkbox-dropdown');
-        if (!dropdownDiv) {
-          console.error(`Dropdown div for BU ${businessUnitId} not found`);
-          return;
-        }
+        if (!dropdownDiv) return;
         
-        dropdownDiv.innerHTML = `<div class="loading"><span class="spinner"></span>Loading planning groups for ${businessUnitName}...</div>`;
+        dropdownDiv.innerHTML = `<div class="loading"><span class="spinner"></span>Loading planning groups...</div>`;
 
-        console.log(`Fetching planning groups for BU: ${businessUnitId} (${businessUnitName})`);
-        
         const response = await fetch(
           `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/planninggroups?pageSize=100`,
           {
@@ -568,15 +583,11 @@
           }
         );
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-
-        const data = await response.json();
-        console.log(`Planning groups response for ${businessUnitName}:`, data);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
+        const data = await response.json();
         const planningGroups = data.entities || [];
+        
         const opts = planningGroups
           .map(pg => ({ 
             value: pg.id, 
@@ -584,44 +595,20 @@
           }))
           .sort((a, b) => a.label.localeCompare(b.label));
         
-        console.log(`Found ${opts.length} planning groups for ${businessUnitName}`);
-        
-        // Get the dropdown from our map and set options
         const dropdown = buWorkHandlingDropdowns.get(businessUnitId);
         if (dropdown) {
           dropdown.setOptions(opts);
-          
-          if (opts.length === 0) {
-            const mutedDiv = dropdownContainer.querySelector('.muted');
-            if (mutedDiv) {
-              mutedDiv.textContent = `No planning groups found for ${businessUnitName}`;
-            }
-          }
-        } else {
-          console.error(`Dropdown for BU ${businessUnitId} not found in map`);
         }
-      } catch (error) {
-        console.error(`Error in fetchPlanningGroupsForBU for ${businessUnitName}:`, error);
         
-        // Get the dropdown from our map and set empty options
+      } catch (error) {
+        console.error(`Error fetching planning groups for ${businessUnitName}:`, error);
         const dropdown = buWorkHandlingDropdowns.get(businessUnitId);
         if (dropdown) {
           dropdown.setOptions([]);
         }
-        
-        // Update the muted text to show error
-        const dropdownContainer = document.getElementById(`workHandling_${businessUnitId}`);
-        if (dropdownContainer) {
-          const mutedDiv = dropdownContainer.querySelector('.muted');
-          if (mutedDiv) {
-            mutedDiv.textContent = `Error loading planning groups for ${businessUnitName}: ${error.message}`;
-            mutedDiv.style.color = '#b4231a';
-          }
-        }
       }
     }
 
-    // ===== Create Activity Code =====
     async function createActivityCode() {
       const resultsDiv = document.getElementById('results');
       resultsDiv.style.display = 'block';
@@ -684,7 +671,6 @@
         const ops = businessUnits.map(businessUnitId => (async () => {
           const createUrl = `https://api.mypurecloud.ie/api/v2/workforcemanagement/businessunits/${businessUnitId}/activitycodes`;
           
-          // Prepare activity code data
           const activityData = {
             name, 
             category, 
@@ -697,19 +683,16 @@
             interruptible
           };
 
-          // Add planningGroupIds if category is OnQueueWork
+          // Add planningGroupIds if category is OnQueueWork (optional - can be empty)
           if (category === 'OnQueueWork') {
             const dropdown = buWorkHandlingDropdowns.get(businessUnitId);
             if (dropdown) {
               const planningGroupIds = dropdown.getSelectedValues();
-              if (planningGroupIds.length > 0) {
-                activityData.planningGroupIds = planningGroupIds;
-              }
+              // Even if empty, we can include it - it's optional
+              activityData.planningGroupIds = planningGroupIds;
             }
           }
 
-          console.log(`Creating activity code for BU ${businessUnitId}:`, activityData);
-          
           const res = await fetch(createUrl, {
             method: 'POST',
             headers: { 
@@ -720,7 +703,7 @@
           });
           
           const data = await res.json().catch(()=> ({}));
-          if (!res.ok) throw new Error(data.message || `HTTP ${res.status}: ${JSON.stringify(data)}`);
+          if (!res.ok) throw new Error(data.message || `HTTP ${res.status}`);
           return { businessUnitId, ok: true };
         })());
 
