@@ -64,7 +64,7 @@
     /* Loading spinner */
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: var(--primary-color); animation: spin 1s ease-in-out infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading { display: flex; align-items: center; gap: 8px; }
+    .loading { display: flex; align-items: center; gap: 8px; padding: 10px; }
   </style>
 </head>
 <body>
@@ -169,8 +169,8 @@
     let businessUnitsData = []; // Store business unit data
     let buWorkHandlingDropdowns = new Map(); // Map to store dropdowns for each BU
 
-    // ===== Checkbox Dropdown (generic) =====
-    function createCheckboxDropdown(containerId, { placeholder='Select items', searchPlaceholder='Search...' } = {}){
+    // ===== Checkbox Dropdown (generic) with event tracking =====
+    function createCheckboxDropdown(containerId, { placeholder='Select items', searchPlaceholder='Search...', onSelectionChange=null } = {}){
       const root = document.getElementById(containerId);
       root.innerHTML = '';
 
@@ -227,14 +227,18 @@
           cb.addEventListener('change', ()=>{
             if (cb.checked) selected.add(o.value); else selected.delete(o.value);
             updateSummary(); updateSelectAllState();
+            // Call selection change callback if provided
+            if (onSelectionChange) onSelectionChange();
           });
           list.appendChild(row);
         });
       }
+      
       function updateSummary(){
         trigger.querySelector('.count').textContent = `${selected.size} selected`;
         summary.textContent = `${selected.size} selected`;
       }
+      
       function updateSelectAllState(){
         const total = options.length, count = selected.size;
         selectAll.indeterminate = count>0 && count<total;
@@ -244,10 +248,11 @@
       trigger.addEventListener('click', ()=>{ panel.classList.toggle('open'); search.focus(); });
       document.addEventListener('click', (e)=>{ if (!root.contains(e.target)) panel.classList.remove('open'); });
       search.addEventListener('input', ()=> render(search.value));
-      clearBtn.addEventListener('click', ()=>{ selected.clear(); render(search.value); updateSummary(); updateSelectAllState(); });
+      clearBtn.addEventListener('click', ()=>{ selected.clear(); render(search.value); updateSummary(); updateSelectAllState(); if (onSelectionChange) onSelectionChange(); });
       selectAll.addEventListener('change', ()=>{
         if (selectAll.checked) options.forEach(o=> selected.add(o.value)); else selected.clear();
         render(search.value); updateSummary();
+        if (onSelectionChange) onSelectionChange();
       });
 
       function setOptions(newOptions){
@@ -255,6 +260,7 @@
         selected.forEach(v=>{ if (!options.some(o=>o.value===v)) selected.delete(v); });
         render(search.value); updateSummary(); updateSelectAllState();
       }
+      
       function getSelectedValues(){ return Array.from(selected); }
       function clearSelection(){ selected.clear(); render(search.value); updateSummary(); updateSelectAllState(); }
 
@@ -273,15 +279,6 @@
         <div class="checkbox-dropdown" id="${containerId}_dropdown"></div>
         <div class="muted">Select planning groups for ${businessUnitName}</div>
       `;
-      
-      // Create the dropdown
-      const dropdown = createCheckboxDropdown(`${containerId}_dropdown`, { 
-        placeholder: 'Select planning groups...', 
-        searchPlaceholder: 'Search planning groups...' 
-      });
-      
-      // Store the dropdown in our map
-      buWorkHandlingDropdowns.set(businessUnitId, dropdown);
       
       return container;
     }
@@ -331,13 +328,26 @@
       document.getElementById('authCard').style.display = 'none';
       document.getElementById('appContent').style.display = 'block';
 
-      buDropdown = createCheckboxDropdown('businessUnitsDD', { placeholder:'Select business units', searchPlaceholder:'Search business units...' });
+      // Create business units dropdown with callback for selection changes
+      buDropdown = createCheckboxDropdown('businessUnitsDD', { 
+        placeholder:'Select business units', 
+        searchPlaceholder:'Search business units...',
+        onSelectionChange: handleBusinessUnitsSelectionChange
+      });
       
       fetchBusinessUnits();
       
       // Add event listener for category change
       document.getElementById('category').addEventListener('change', handleCategoryChange);
       document.getElementById('create-button').addEventListener('click', createActivityCode);
+    }
+
+    // Handle business units selection change
+    function handleBusinessUnitsSelectionChange() {
+      // If On Queue is selected, update work handling sections
+      if (document.getElementById('category').value === 'OnQueueWork') {
+        handleCategoryChange();
+      }
     }
 
     // Update checkbox options based on category
@@ -445,6 +455,16 @@
               const buContainer = createWorkHandlingDropdown(buId, buData.name);
               workHandlingBUs.appendChild(buContainer);
               
+              // Create the dropdown for this BU
+              const dropdownId = `workHandling_${buId}_dropdown`;
+              const dropdown = createCheckboxDropdown(dropdownId, { 
+                placeholder: 'Select planning groups...', 
+                searchPlaceholder: 'Search planning groups...' 
+              });
+              
+              // Store the dropdown in our map
+              buWorkHandlingDropdowns.set(buId, dropdown);
+              
               // Fetch planning groups for this BU
               fetchPlanningGroupsForBU(buId, buData.name);
             }
@@ -488,15 +508,6 @@
           .sort((a,b)=> a.label.localeCompare(b.label));
         buDropdown.setOptions(opts);
         
-        // Add event listener to business units dropdown to update work handling when selection changes
-        document.getElementById('businessUnitsDD').addEventListener('click', () => {
-          setTimeout(() => {
-            // If On Queue is selected, update work handling sections
-            if (document.getElementById('category').value === 'OnQueueWork') {
-              handleCategoryChange();
-            }
-          }, 100);
-        });
       } catch (error) {
         console.error('Error in fetchBusinessUnits:', error);
         showMessage(`Error loading business units: ${error.message}`, 'error');
